@@ -12,7 +12,7 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim-bookworm AS runtime
 
-COPY --from=build --chown=app:app /app /app
+COPY --from=build /app /app
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
