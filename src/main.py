@@ -164,9 +164,9 @@ async def setup_http_server():
     app.add_routes([web.get('/', index_handler)])
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', 80)
     await site.start()
-    print("HTTP server started on http://0.0.0.0:8080")
+    print("HTTP server started on http://0.0.0.0:80")
 
 # Main entry point to start both WebSocket and HTTP servers
 async def main():
