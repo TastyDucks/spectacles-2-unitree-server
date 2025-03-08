@@ -59,34 +59,60 @@ async def receive_messages(websocket):
             break
 
 
-# WebSocket handler that spawns both send and receive tasks
-async def handler(websocket, path):
-    remote_address = websocket.remote_address
+# WebSocket handler that will be adapted to work with aiohttp
+async def websocket_handler(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    
+    remote_address = request.remote
     print(f"New connection from {remote_address}")
     
     # Track this connection
-    active_connections.add(websocket)
-    connection_info[websocket] = {
-        "address": f"{remote_address[0]}:{remote_address[1]}",
+    active_connections.add(ws)
+    connection_info[ws] = {
+        "address": remote_address,
         "connected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "messages_received": 0
     }
     
     try:
-        send_task = asyncio.create_task(send_frames(websocket))
-        recv_task = asyncio.create_task(receive_messages(websocket))
-        # Wait until one of the tasks completes (or the connection closes)
-        done, pending = await asyncio.wait(
-            [send_task, recv_task], return_when=asyncio.FIRST_COMPLETED
-        )
-        # Cancel any remaining tasks
-        for task in pending:
-            task.cancel()
+        # Task to send frames
+        async def send_frames_task():
+            while not ws.closed:
+                frame_bytes = await generate_frame()
+                await ws.send_bytes(frame_bytes)
+                await asyncio.sleep(0.1)  # ~10 fps
+                
+        # Start sending frames in the background
+        send_task = asyncio.create_task(send_frames_task())
+        
+        # Handle incoming messages
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    print("Received GestureData:", data)
+                    connection_info[ws]["messages_received"] += 1
+                except json.JSONDecodeError:
+                    print("Received non-JSON message:", msg.data)
+            elif msg.type == web.WSMsgType.ERROR:
+                print(f"WebSocket connection closed with error: {ws.exception()}")
+                break
+                
+        # Cancel the send task when the connection is closed
+        send_task.cancel()
+        try:
+            await send_task
+        except asyncio.CancelledError:
+            pass
+            
     finally:
         # Remove connection when done
-        active_connections.discard(websocket)
-        if websocket in connection_info:
-            del connection_info[websocket]
+        active_connections.discard(ws)
+        if ws in connection_info:
+            del connection_info[ws]
+            
+    return ws
 
 # HTTP routes for web interface
 async def index_handler(request):
@@ -94,7 +120,7 @@ async def index_handler(request):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Spectacles WebSocket Server Status</title>
+        <title>Spectacles-2-Unitree Coordination Server Status</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
             h1 { color: #333; }
@@ -115,7 +141,7 @@ async def index_handler(request):
         </script>
     </head>
     <body>
-        <h1>Spectacles WebSocket Server Status</h1>
+        <h1>Spectacles-2-Unitree Coordination Server Status</h1>
     """
     
     active_count = len(active_connections)
@@ -136,6 +162,7 @@ async def index_handler(request):
             <tr>
                 <th>Remote Address</th>
                 <th>Connected At</th>
+                <th>Messages Received</th>
             </tr>
         """
         
@@ -144,6 +171,7 @@ async def index_handler(request):
             <tr>
                 <td>{info['address']}</td>
                 <td>{info['connected_at']}</td>
+                <td>{info['messages_received']}</td>
             </tr>
             """
         
@@ -158,25 +186,29 @@ async def index_handler(request):
     
     return web.Response(text=html, content_type="text/html")
 
-# Setup the HTTP app
-async def setup_http_server():
+# Main entry point to start the combined HTTP and WebSocket server
+async def main():
+    # Create the aiohttp application
     app = web.Application()
-    app.add_routes([web.get('/', index_handler)])
+    
+    # Add routes
+    app.add_routes([
+        web.get('/', index_handler),
+        web.get('/ws', websocket_handler)  # WebSocket endpoint
+    ])
+    
+    # Start the server
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', 80)
-    await site.start()
-    print("HTTP server started on http://0.0.0.0:80")
-
-# Main entry point to start both WebSocket and HTTP servers
-async def main():
-    # Start the HTTP server
-    await setup_http_server()
     
-    # Start the WebSocket server
-    async with websockets.serve(handler, "0.0.0.0", 80):
-        print("WebSocket server started on ws://0.0.0.0:80")
-        await asyncio.Future()  # run forever
+    print("Server started on http://0.0.0.0:80")
+    print("WebSocket endpoint available at ws://0.0.0.0:80/ws")
+    
+    await site.start()
+    
+    # Keep the server running
+    await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
     asyncio.run(main())
