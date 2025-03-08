@@ -5,7 +5,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
+
 ADD . .
+
+COPY src/static static
+COPY src/templates templates
+
 RUN uv sync --frozen --no-install-project --no-dev
 
 RUN uv sync --frozen --no-dev
