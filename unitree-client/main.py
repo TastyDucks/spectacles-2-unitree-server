@@ -9,7 +9,6 @@ import time
 from typing import Dict, List
 
 import websockets
-
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
 from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
 
@@ -41,6 +40,7 @@ class RobotClient:
         self.reconnect_delay = 1  # Start with 1 second delay
         self.max_reconnect_delay = 30  # Max 30 seconds between reconnects
         self.gesture_data_queue = asyncio.Queue()  # Queue for received gesture data
+        self.robot: LocoClient | None = None
 
         if not mock:
             # Initialize Unitree robot client
@@ -106,8 +106,20 @@ class RobotClient:
             await self.handle_ping(data)
         elif "hand" in data and "origin" in data and "direction" in data:
             await self.handle_gesture_data(data)
-        elif data.get("type") == "wave":
-            await self.handle_wave(data)
+        elif data.get("type") == "walk":
+            await self.handle_walk(data)
+        elif data.get("type") in [
+            "stand",
+            "stand_low",
+            "stand_high",
+            "sit",
+            "wave",
+            "wave_turn",
+            "shake_hand",
+            "zero_torque",
+            "damp",
+        ]:
+            await self.handle_action(data)
         else:
             logger.info(f"Received message: {data}")
 
@@ -155,8 +167,35 @@ class RobotClient:
         # For example:
         await self.process_robot_command(hand, origin, direction)
 
-    async def handle_wave(self, _data: Dict):
-        self.robot.WaveHand()
+    async def handle_action(self, data: Dict):
+        match data["type"]:
+            case "stand":
+                self.robot.StandUp()
+            case "stand_low":
+                self.robot.LowStand()
+            case "stand_high":
+                self.robot.HighStand()
+            case "sit":
+                self.robot.Sit()
+            case "wave":
+                self.robot.WaveHand()
+            case "wave_turn":
+                self.robot.WaveHand(True)
+            case "shake_hand":
+                self.robot.ShakeHand()
+            case "zero_torque":
+                self.robot.ZeroTorque()
+            case "damp":
+                self.robot.Damp()
+            case _:
+                logger.warning(f"Unknown action: {data}")
+
+    async def handle_walk(self, data: Dict):
+        # Clamp speed values to the configured limits
+        x_vel = max(min(data.get("long", 0.0), FORWARD_SPEED), -FORWARD_SPEED)
+        y_vel = max(min(data.get("lat", 0.0), LATERAL_SPEED), -LATERAL_SPEED)
+        yaw_vel = max(min(data.get("yaw", 0.0), ROTATION_SPEED), -ROTATION_SPEED)
+        self.robot.Move(x_vel, y_vel, yaw_vel)
 
     async def process_robot_command(
         self, hand: str, origin: List[float], direction: List[float]
