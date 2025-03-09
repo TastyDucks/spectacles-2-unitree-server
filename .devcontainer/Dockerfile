@@ -24,14 +24,17 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o 
 # Useful stuff
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    cmake \
     docker-buildx-plugin \
     docker-ce-cli \
+    gcc-aarch64-linux-gnu \
     gh \
     git \
     htop \
     iputils-ping \
     jq \
     less \
+    libssl-dev \
     linux-tools-common \
     linux-tools-generic \
     micro \
@@ -48,3 +51,11 @@ RUN pipx ensurepath && pipx install "uv==$UV_VERSION"
 # Install act
 RUN --mount=type=cache,target=/root/.cache/act \
     curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
+
+# Robot client deps
+
+RUN git clone https://github.com/eclipse-cyclonedds/cyclonedds \
+    && cd cyclonedds && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && make install \
+    && cd ../../ && rm -rf cyclonedds
+ENV CYCLONEDDS_HOME=/usr/local
+ENV CMAKE_PREFIX_PATH=/usr/local
