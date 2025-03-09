@@ -18,6 +18,8 @@ COPY --from=build /app /app
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
+WORKDIR /app/src
+
 EXPOSE 80
 
-CMD ["python", "app/src/main.py"]
+CMD ["python", "main.py"]
