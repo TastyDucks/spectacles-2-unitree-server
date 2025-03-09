@@ -1,0 +1,7 @@
+[project]
+    dependencies    = ["asyncio >=3.4.3", "websockets>=15.0"]
+    description     = "Unitree Robot Client"
+    name            = "unitree-client"
+    readme          = "README.md"
+    requires-python = ">=3.12"
+    version         = "0.1.0"

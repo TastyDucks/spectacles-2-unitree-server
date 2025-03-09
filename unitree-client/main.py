@@ -10,6 +10,14 @@ from typing import Dict, List
 
 import websockets
 
+from unitree_sdk2py.core.channel import ChannelFactoryInitialize
+from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
+
+# Configuration constants
+FORWARD_SPEED = 0.3  # Forward/backward speed in m/s
+LATERAL_SPEED = 0.2  # Left/right speed in m/s
+ROTATION_SPEED = 0.6  # Rotation speed in rad/s
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -23,16 +31,36 @@ STATUS_PAIRED = "paired"
 
 
 class RobotClient:
-    def __init__(self, server_url: str):
+    def __init__(self, server_url: str, mock: bool = True):
         self.server_url = server_url
         self.ws = None
         self.client_id = None
         self.paired_with = None
         self.status = STATUS_DISCONNECTED
-        self.running = True
+        self.running = False
         self.reconnect_delay = 1  # Start with 1 second delay
         self.max_reconnect_delay = 30  # Max 30 seconds between reconnects
         self.gesture_data_queue = asyncio.Queue()  # Queue for received gesture data
+
+        if not mock:
+            # Initialize Unitree robot client
+            try:
+                ChannelFactoryInitialize(0, "eth0")
+            except Exception as e:
+                logger.error(f"Failed to initialize ChannelFactory: {e}")
+                self.running = False
+            try:
+                self.robot = LocoClient()
+                self.robot.SetTimeout(10.0)
+                self.robot.Init()
+            except Exception as e:
+                logger.error(f"Failed to initialize robot client: {e}")
+                self.running = False
+            finally:
+                self.running = True
+        else:
+            self.robot = None
+            self.running = True
 
     async def connect(self):
         """Connect to the server and identify as a robot client"""
@@ -78,6 +106,8 @@ class RobotClient:
             await self.handle_ping(data)
         elif "hand" in data and "origin" in data and "direction" in data:
             await self.handle_gesture_data(data)
+        elif data.get("type") == "wave":
+            await self.handle_wave(data)
         else:
             logger.info(f"Received message: {data}")
 
@@ -124,6 +154,9 @@ class RobotClient:
         # Here you would add code to control the Unitree robot based on the gesture data
         # For example:
         await self.process_robot_command(hand, origin, direction)
+
+    async def handle_wave(self, _data: Dict):
+        self.robot.WaveHand()
 
     async def process_robot_command(
         self, hand: str, origin: List[float], direction: List[float]
@@ -224,9 +257,15 @@ async def main():
         default="wss://spectaclexr.com/ws",
         help="Coordination server WebSocket URL",
     )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        default=False,
+        help="Run in mock mode for testing purposes",
+    )
     args = parser.parse_args()
 
-    client = RobotClient(args.server)
+    client = RobotClient(args.server, mock=args.mock)
 
     # Handle Ctrl+C gracefully
     loop = asyncio.get_running_loop()
