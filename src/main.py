@@ -165,10 +165,10 @@ def create_app():
     app = web.Application(middlewares=[auth_middleware])
 
     # Setup Jinja2 templates
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("src/templates"))
 
     # Add static route
-    app.router.add_static("/static/", "static", name="static")
+    app.router.add_static("/static/", "src/static", name="static")
 
     # Add routes
     app.router.add_get("/", dashboard_handler)

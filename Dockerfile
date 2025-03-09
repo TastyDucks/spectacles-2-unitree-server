@@ -8,9 +8,6 @@ WORKDIR /app
 
 ADD . .
 
-COPY src/static static
-COPY src/templates templates
-
 RUN uv sync --frozen --no-install-project --no-dev
 
 RUN uv sync --frozen --no-dev
