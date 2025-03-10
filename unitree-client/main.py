@@ -127,7 +127,9 @@ class RobotClient:
         """Handle status update messages from the server"""
         old_status = self.status
         self.status = data.get("status")
-
+        # Always reset the movement to zero when the status changes.
+        if self.robot:
+            self.robot.Move(0, 0, 0)
         if self.status == STATUS_PAIRED:
             self.paired_with = data.get("paired_with", {})
             logger.info(
@@ -168,27 +170,28 @@ class RobotClient:
         await self.process_robot_command(hand, origin, direction)
 
     async def handle_action(self, data: Dict):
-        match data["type"]:
-            case "stand":
-                self.robot.StandUp()
-            case "stand_low":
-                self.robot.LowStand()
-            case "stand_high":
-                self.robot.HighStand()
-            case "sit":
-                self.robot.Sit()
-            case "wave":
-                self.robot.WaveHand()
-            case "wave_turn":
-                self.robot.WaveHand(True)
-            case "shake_hand":
-                self.robot.ShakeHand()
-            case "zero_torque":
-                self.robot.ZeroTorque()
-            case "damp":
-                self.robot.Damp()
-            case _:
-                logger.warning(f"Unknown action: {data}")
+        action_type = data.get("type", "")
+
+        if action_type == "stand":
+            self.robot.StandUp()
+        elif action_type == "stand_low":
+            self.robot.LowStand()
+        elif action_type == "stand_high":
+            self.robot.HighStand()
+        elif action_type == "sit":
+            self.robot.Sit()
+        elif action_type == "wave":
+            self.robot.WaveHand()
+        elif action_type == "wave_turn":
+            self.robot.WaveHand(True)
+        elif action_type == "shake_hand":
+            self.robot.ShakeHand()
+        elif action_type == "zero_torque":
+            self.robot.ZeroTorque()
+        elif action_type == "damp":
+            self.robot.Damp()
+        else:
+            logger.warning(f"Unknown action: {data}")
 
     async def handle_walk(self, data: Dict):
         # Clamp speed values to the configured limits
