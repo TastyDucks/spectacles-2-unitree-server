@@ -381,6 +381,13 @@ async def websocket_handler(request):
                             # Keep only the last 50 measurements
                             if len(client.latency_history) > 50:
                                 client.latency_history.pop(0)
+                    
+                    # Handle unpair request
+                    elif data.get("type") == "unpair":
+                        if client.is_paired:
+                            paired_client = client.paired_with
+                            await unpair_clients(client, paired_client, "Client requested to unpair")
+                            logger.info(f"Client {client_id} requested to unpair from {paired_client.id}")
 
                     # If paired, relay message to the paired client
                     elif client.is_paired and not client.paired_with.ws.closed:
@@ -537,3 +544,32 @@ if __name__ == "__main__":
     app = create_app()
     port = int(os.environ.get("PORT", 80))
     web.run_app(app, host="0.0.0.0", port=port)
+
+
+# Helper function to unpair clients
+async def unpair_clients(client1, client2, reason="Clients unpaired"):
+    """Unpair two clients and notify both"""
+    # Store IDs before unpairing
+    client1_id = client1.id
+    client2_id = client2.id
+    
+    # Reset paired status
+    client1.paired_with = None
+    client2.paired_with = None
+    
+    # Add back to unpaired sets
+    if client1.type == CLIENT_TYPE_ROBOT:
+        unpaired_robots.add(client1_id)
+    else:
+        unpaired_spectacles.add(client1_id)
+        
+    if client2.type == CLIENT_TYPE_ROBOT:
+        unpaired_robots.add(client2_id)
+    else:
+        unpaired_spectacles.add(client2_id)
+    
+    # Notify both clients
+    await notify_client_unpaired(client1, reason)
+    await notify_client_unpaired(client2, reason)
+    
+    logger.info(f"Unpaired clients {client1_id} and {client2_id}: {reason}")

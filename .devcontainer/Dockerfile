@@ -25,7 +25,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
-    docker-buildx-plugin \
     docker-ce-cli \
     gcc-aarch64-linux-gnu \
     gh \
