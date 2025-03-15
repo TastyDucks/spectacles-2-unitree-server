@@ -244,7 +244,7 @@ async def notify_client_unpaired(client, reason="The paired client has disconnec
                     "type": "status_update",
                     "status": STATUS_WAITING,
                     "message": reason,
-                    "paired_with": None,
+                    "client_id": client.id,
                 }
             )
         except Exception as e:
