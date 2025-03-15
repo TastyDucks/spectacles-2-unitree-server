@@ -5,3 +5,39 @@
     readme          = "README.md"
     requires-python = ">=3.12"
     version         = "0.1.0"
+
+[tool.ruff]
+    line-length = 160
+
+    [tool.ruff.lint]
+        select = [
+            "A",
+            "ARG",
+            "ASYNC",
+            "B",
+            "BLE",
+            "C4",
+            "DTZ",
+            "E",
+            "EM",
+            "ERA",
+            "FBT",
+            "FIX",
+            "FURB",
+            "INT",
+            "N",
+            "NPY",
+            "PERF",
+            "PIE",
+            "PYI",
+            "Q",
+            "RET",
+            "RUF",
+            "S",
+            "SIM",
+            "SLOT",
+            "TRY",
+            "UP",
+            "W",
+        ]
+        unfixable = ["B"]
