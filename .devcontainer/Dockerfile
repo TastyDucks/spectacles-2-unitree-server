@@ -1,7 +1,7 @@
 #
 # Base stage for all images
 #
-FROM ubuntu:noble AS base
+FROM --platform=linux/amd64 ubuntu:noble AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -37,7 +37,7 @@ ENV PATH="/opt/openrobots/bin:${PATH}" \
 #
 # Devcontainer
 #
-FROM base AS dev
+FROM --platform=linux/amd64 base AS dev
 
 ARG UV_VERSION=0.6.2
 

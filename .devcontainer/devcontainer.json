@@ -4,7 +4,7 @@ d// For format details, see https://aka.ms/devcontainer.json.
   "build": {
     "dockerfile": "Dockerfile",
     "context": "..",
-    "target": "dev"
+    "target": "dev",
   },
     "mounts": [
     {
@@ -13,5 +13,6 @@ d// For format details, see https://aka.ms/devcontainer.json.
       "type": "bind"
     }
   ],
+  "runArgs": ["--platform=linux/amd64" ],
   "forwardPorts": [8080]
 }

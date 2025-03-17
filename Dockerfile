@@ -1,7 +1,7 @@
 #
 # Base stage for all images
 #
-FROM ubuntu:noble AS base
+FROM --platform=linux/amd64 ubuntu:noble AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -38,7 +38,7 @@ ENV PATH="/opt/openrobots/bin:${PATH}" \
 #
 # Coordination server build stage
 #
-FROM base AS build
+FROM --platform=linux/amd64 base AS build
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -55,7 +55,7 @@ RUN uv sync --frozen --no-dev
 #
 # Coordination server runtime stage
 #
-FROM base AS runtime
+FROM --platform=linux/amd64base AS runtime
 
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:${PATH}"
