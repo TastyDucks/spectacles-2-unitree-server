@@ -55,7 +55,7 @@ RUN uv sync --frozen --no-dev
 #
 # Coordination server runtime stage
 #
-FROM --platform=linux/amd64base AS runtime
+FROM --platform=linux/amd64 base AS runtime
 
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:${PATH}"
