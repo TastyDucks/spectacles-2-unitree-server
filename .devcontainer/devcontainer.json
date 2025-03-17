@@ -1,9 +1,10 @@
-// For format details, see https://aka.ms/devcontainer.json.
+d// For format details, see https://aka.ms/devcontainer.json.
 {
   "name": "Spectacles-2-Unitree coordination server",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".."
+    "context": "..",
+    "target": "dev"
   },
     "mounts": [
     {

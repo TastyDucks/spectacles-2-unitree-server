@@ -1,4 +1,44 @@
-FROM python:3.12-slim-bookworm AS build
+#
+# Base stage for all images
+#
+FROM ubuntu:noble AS base
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    apt-transport-https \
+    curl \
+    gnupg \
+    lsb-release \
+    python3.12 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc | tee /etc/apt/keyrings/robotpkg.asc > /dev/null && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
+    | tee /etc/apt/sources.list.d/robotpkg.list && \
+    # pinocchio
+    curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
+    | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg && \
+    curl -fsSL http://neuro.debian.net/lists/bookworm.us-ca.full \
+    | tee /etc/apt/sources.list.d/neurodebian.sources.list > /dev/null
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libboost-all-dev \
+    libspdlog-dev \
+    libeigen3-dev \
+    robotpkg-py312-pinocchio \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/opt/openrobots/bin:${PATH}" \
+    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig" \
+    LD_LIBRARY_PATH="/opt/openrobots/lib" \
+    PYTHONPATH="/opt/openrobots/lib/python3.12/site-packages" \
+    CMAKE_PREFIX_PATH="/opt/openrobots"
+
+
+#
+# Coordination server build stage
+#
+FROM base AS build
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -12,14 +52,13 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 RUN uv sync --frozen --no-dev
 
-FROM python:3.12-slim-bookworm AS runtime
+#
+# Coordination server runtime stage
+#
+FROM base AS runtime
 
 COPY --from=build /app /app
-
 ENV PATH="/app/.venv/bin:${PATH}"
-
 WORKDIR /app/src
-
 EXPOSE 80
-
-CMD ["python", "main.py"]
+CMD ["python3.12", "main.py"]

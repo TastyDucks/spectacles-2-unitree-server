@@ -30,7 +30,14 @@ cd unitree-client && uv run . -- --mock --server wss://SERVER_HOST/ws
 
 ### Deployment
 
-WIP. Basically, get the Unitree G1 client running on the robot's computer with access to the required dependencies, and the server running on a public IP address with a valid SSL certificate.
+- Build the coordination server targeting `linux/amd64` (necessary for `robotpkg-py318-pinocchio`):
+  ```sh
+  docker buildx build --platform linux/amd64 -t coordination-server .
+  ```
+  You can do this inside the devcontainer as it mounts the Docker socket from the host via `/var/run/docker.sock`.
+   > **NOTE**: If you are using Orbstack on an M-series Mac, you'll need to disable Rosetta while building the server's Docker image locally: Orbstack > Settings > System > Use Rosetta to run Intel code (uncheck this).
+
+WIP. Basically, get the Unitree G1 client running on the robot's computer with access to the required dependencies, and the server running in the `Dockerfile` container on a public IP address with a valid SSL certificate. Port `80` should be exposed in the container and mapped to 443 for ingress and egress.
 
 > **IMPORTANT**: The server should have the environment variable `DASHBOARD_PASSWORD` set to something with a decent amount of entropy. The default password is `admin`.
 
