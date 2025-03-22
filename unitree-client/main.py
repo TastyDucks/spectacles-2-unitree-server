@@ -4,23 +4,20 @@ import asyncio
 import json
 import logging
 import signal
+import struct
 import sys
 import time
-from typing import Dict, List
 
+import numpy as np
 import websockets
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
+from unitree_sdk2py.g1.audio.g1_audio_client import AudioClient
 from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
 
-# Configuration constants
-FORWARD_SPEED = 0.3  # Forward/backward speed in m/s
-LATERAL_SPEED = 0.2  # Left/right speed in m/s
-ROTATION_SPEED = 0.6  # Rotation speed in rad/s
+import ik.ik
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("robot_client")
 
 # Client statuses
@@ -28,6 +25,113 @@ STATUS_DISCONNECTED = "disconnected"
 STATUS_WAITING = "waiting"
 STATUS_PAIRED = "paired"
 
+# Configuration constants
+FORWARD_SPEED = 0.3  # Forward/backward speed in m/s
+LATERAL_SPEED = 0.2  # Left/right speed in m/s
+ROTATION_SPEED = 0.6  # Rotation speed in rad/s
+
+class Robot:
+    """
+    A wrapper around the unitree LocoClient, AudioClient, and the ArmsAndHands class.
+    """
+    def __init__(self, mock: bool = True):
+        self.mock = mock
+        if not mock:
+            logger.info("Initializing LocoClient and AudioClient...")
+            ChannelFactoryInitialize(0, "eth0")
+
+            self._loco = LocoClient()
+            self._loco.SetTimeout(10.0)
+            self._loco.Init()
+
+            self._audio = AudioClient()
+            self._audio.Init()
+        else:
+            self._loco = None
+        logger.info("Initializing arms and hands IK solver...")
+        self._arms_and_hands = ik.ik.ArmsAndHands()
+
+    def act(self, action: str):
+        if self.mock:
+            logger.info(f"Mock action: {action}")
+            return
+        """Handle discrete pre-programmed actions."""
+        try:
+            if action == "stand":
+                self._loco.StandUp()
+            elif action == "stand_low":
+                self._loco.LowStand()
+            elif action == "stand_high":
+                self._loco.HighStand()
+            elif action == "sit":
+                self._loco.Sit()
+            elif action == "wave":
+                self._loco.WaveHand()
+            elif action == "wave_turn":
+                self._loco.WaveHand(True)
+            elif action == "shake_hand":
+                self._loco.ShakeHand()
+            elif action == "zero_torque":
+                self._loco.ZeroTorque()
+            elif action == "damp":
+                self._loco.Damp()
+            elif action == "squat2stand":
+                self._loco.Squat2StandUp()
+            elif action == "lie2stand":
+                self._loco.Lie2StandUp()
+            elif action == "stand2squat":
+                self._loco.StandUp2Squat()
+            else:
+                logger.warning(f"Unknown action: {action}")
+        except Exception as e:
+            logger.warning(f"Error handling action: {e}")
+
+    async def move_hands(self, movement: ik.ik.HandMovement):
+        # Not printing this because it spams due to high update rate.
+        try:
+            await self._arms_and_hands.move(movement, self.mock)
+        except Exception as e:
+            logger.warning(f"Error handling hand movement: {e}")
+
+    def walk(self, long: float, lat: float, yaw: float):
+        """Handle walking commands with speed clamping."""
+        if self.mock:
+            logger.info(f"Mock walk command: long={long}, lat={lat}, yaw={yaw}")
+            return
+        # Clamp speed values to the configured limits
+        x_vel = max(min(long, FORWARD_SPEED), -FORWARD_SPEED)
+        y_vel = max(min(lat, LATERAL_SPEED), -LATERAL_SPEED)
+        yaw_vel = max(min(yaw, ROTATION_SPEED), -ROTATION_SPEED)
+
+        # If any of these values are greater than zero, set the rgb to red to indicate the robot is moving.
+        if x_vel > 0 or y_vel > 0 or yaw_vel > 0:
+            self.rgb(255, 0, 0)
+        else:
+            self.rgb(0, 0, 0)
+
+        self._loco.Move(x_vel, y_vel, yaw_vel)
+
+    def rgb(self, r: int, g: int, b: int):
+        """Set robot RGB"""
+        # Clamp RGB values to 0-255
+        r = max(0, min(r, 255))
+        g = max(0, min(g, 255))
+        b = max(0, min(b, 255))
+        if self.mock:
+            logger.info(f"Mock RGB command: r={r}, g={g}, b={b}")
+            return
+        self._audio.LedControl(r, g, b)
+
+    def tts(self, text: str):
+        """Play text to speech"""
+        if self.mock:
+            logger.info(f"Mock TTS command: {text}")
+            return
+        self._audio.TtsMaker(text, 0)
+
+    def get_sim_image(self):
+        """Get a rendered perspective of the robot's simulated movements"""
+        return self._arms_and_hands.render()
 
 class RobotClient:
     def __init__(self, server_url: str, mock: bool = True):
@@ -36,37 +140,16 @@ class RobotClient:
         self.client_id = None
         self.paired_with = None
         self.status = STATUS_DISCONNECTED
-        self.running = False
+        self.running = True
         self.reconnect_delay = 1  # Start with 1 second delay
         self.max_reconnect_delay = 30  # Max 30 seconds between reconnects
-        self.gesture_data_queue = asyncio.Queue()  # Queue for received gesture data
-        self.robot: LocoClient | None = None
-
-        if not mock:
-            # Initialize Unitree robot client
-            try:
-                ChannelFactoryInitialize(0, "eth0")
-            except Exception as e:
-                logger.error(f"Failed to initialize ChannelFactory: {e}")
-                self.running = False
-            try:
-                self.robot = LocoClient()
-                self.robot.SetTimeout(10.0)
-                self.robot.Init()
-            except Exception as e:
-                logger.error(f"Failed to initialize robot client: {e}")
-                self.running = False
-            finally:
-                self.running = True
-        else:
-            self.robot = None
-            self.running = True
+        self.robot = Robot(mock=mock)
 
     async def connect(self):
         """Connect to the server and identify as a robot client"""
         try:
             logger.info(f"Connecting to {self.server_url}")
-            self.ws = await websockets.connect(self.server_url)
+            self.ws = await websockets.connect(self.server_url, ping_timeout=30, ping_interval=5)
 
             # Identify as robot
             await self.ws.send(json.dumps({"type": "robot"}))
@@ -77,7 +160,7 @@ class RobotClient:
 
             return True
         except Exception as e:
-            logger.error(f"Connection failed: {e}")
+            logger.exception(f"Connection failed")
             return False
 
     async def handle_messages(self):
@@ -85,7 +168,6 @@ class RobotClient:
         try:
             while self.running and self.ws:
                 message = await self.ws.recv()
-
                 try:
                     data = json.loads(message)
                     await self.process_message(data)
@@ -98,16 +180,14 @@ class RobotClient:
         except Exception as e:
             logger.error(f"Error handling messages: {e}")
 
-    async def process_message(self, data: Dict):
+    async def process_message(self, data: dict):
         """Process different types of messages"""
         if data.get("type") == "status_update":
-            await self.handle_status_update(data)
+            self.handle_status_update(data)
         elif data.get("type") == "ping":
             await self.handle_ping(data)
-        elif "hand" in data and "origin" in data and "direction" in data:
-            await self.handle_gesture_data(data)
         elif data.get("type") == "walk":
-            await self.handle_walk(data)
+            self.robot.walk(data.get("long", 0), data.get("lat", 0), data.get("yaw", 0))
         elif data.get("type") in [
             "stand",
             "stand_low",
@@ -118,125 +198,51 @@ class RobotClient:
             "shake_hand",
             "zero_torque",
             "damp",
+            "squat2stand",
+            "lie2stand",
+            "stand2squat",
         ]:
-            await self.handle_action(data)
+            self.robot.act(data.get("type"))
+        elif data.get("type") == "hand_movement":
+            await self.robot.move_hands(ik.ik.HandMovement(data))
         else:
             logger.info(f"Received message: {data}")
 
-    async def handle_status_update(self, data: Dict):
+    def handle_status_update(self, data: dict):
         """Handle status update messages from the server"""
         old_status = self.status
         self.status = data.get("status")
         # Always reset the movement to zero when the status changes.
-        if self.robot:
-            self.robot.Move(0, 0, 0)
+        logger.info("Stopping robot movement")
+        self.robot.walk(0, 0, 0)
         if self.status == STATUS_PAIRED:
             self.paired_with = data.get("paired_with", {})
-            logger.info(
-                f"Paired with {self.paired_with.get('type')} client (ID: {self.paired_with.get('id')})"
-            )
+            msg = f"Paired with {self.paired_with.get('type')} client ID: {self.paired_with.get('id')}"
+            logger.info(msg)
+            self.robot.rgb(0, 255, 0) # Green LED for paired status
+            self.robot.tts(msg)
         elif old_status == STATUS_PAIRED and self.status == STATUS_WAITING:
             logger.info(f"Unpairing: {data.get('message')}")
             self.paired_with = None
+            self.robot.rgb(255, 255, 0) # Yellow LED for waiting.
+            self.robot.tts("Hasta la vista baby")
         elif self.status == STATUS_WAITING:
             if "client_id" in data:
                 self.client_id = data.get("client_id")
-            logger.info(f"Waiting for pair: {data.get('message')}")
+            msg = f"Client ID: {self.client_id} Waiting for pair: {data.get('message')}"
+            logger.info(msg)
+            self.robot.rgb(255, 255, 0) # Yellow LED for waiting.
+            self.robot.tts("Waiting")
         elif self.status == STATUS_DISCONNECTED:
             logger.info(f"Disconnected: {data.get('message')}")
+            self.robot.rgb(0, 0, 0) # LED off when disconnected.
+            self.robot.tts("I'll be back")
 
-    async def handle_ping(self, data: Dict):
+    async def handle_ping(self, data: dict):
         """Respond to ping messages for latency measurement"""
         timestamp = data.get("timestamp")
         if timestamp:
-            await self.ws.send(
-                json.dumps({"type": "pong", "ping_timestamp": timestamp})
-            )
-
-    async def handle_gesture_data(self, data: Dict):
-        """Process gesture data received from paired spectacles client"""
-        # Add to queue for processing by the robot control system
-        await self.gesture_data_queue.put(data)
-
-        # Print information about the gesture
-        hand = data.get("hand", "unknown")
-        origin = data.get("origin", [0, 0, 0])
-        direction = data.get("direction", [0, 0, 0])
-
-        logger.info(f"Gesture: Hand={hand}, Origin={origin}, Direction={direction}")
-
-        # Here you would add code to control the Unitree robot based on the gesture data
-        # For example:
-        await self.process_robot_command(hand, origin, direction)
-
-    async def handle_action(self, data: Dict):
-        action_type = data.get("type", "")
-
-        if action_type == "stand":
-            self.robot.StandUp()
-        elif action_type == "stand_low":
-            self.robot.LowStand()
-        elif action_type == "stand_high":
-            self.robot.HighStand()
-        elif action_type == "sit":
-            self.robot.Sit()
-        elif action_type == "wave":
-            self.robot.WaveHand()
-        elif action_type == "wave_turn":
-            self.robot.WaveHand(True)
-        elif action_type == "shake_hand":
-            self.robot.ShakeHand()
-        elif action_type == "zero_torque":
-            self.robot.ZeroTorque()
-        elif action_type == "damp":
-            self.robot.Damp()
-        else:
-            logger.warning(f"Unknown action: {data}")
-
-    async def handle_walk(self, data: Dict):
-        # Clamp speed values to the configured limits
-        x_vel = max(min(data.get("long", 0.0), FORWARD_SPEED), -FORWARD_SPEED)
-        y_vel = max(min(data.get("lat", 0.0), LATERAL_SPEED), -LATERAL_SPEED)
-        yaw_vel = max(min(data.get("yaw", 0.0), ROTATION_SPEED), -ROTATION_SPEED)
-        self.robot.Move(x_vel, y_vel, yaw_vel)
-
-    async def process_robot_command(
-        self, hand: str, origin: List[float], direction: List[float]
-    ):
-        """Convert gesture data to robot commands"""
-        # This is a placeholder for actual robot control logic
-        # You would implement your specific control logic here
-
-        # Example: Simple mapping of gesture direction to movement
-        x_dir = direction[0]
-        y_dir = direction[1]
-        z_dir = direction[2]
-
-        # Example logic:
-        if abs(x_dir) > abs(y_dir) and abs(x_dir) > abs(z_dir):
-            # Primarily left/right motion
-            if x_dir > 0.5:
-                logger.info("Robot command: Turn right")
-                # robot.turn_right(magnitude=x_dir)
-            elif x_dir < -0.5:
-                logger.info("Robot command: Turn left")
-                # robot.turn_left(magnitude=abs(x_dir))
-        elif abs(y_dir) > abs(x_dir) and abs(y_dir) > abs(z_dir):
-            # Primarily up/down motion
-            if y_dir > 0.5:
-                logger.info("Robot command: Look up")
-                # robot.look_up(magnitude=y_dir)
-            elif y_dir < -0.5:
-                logger.info("Robot command: Look down")
-                # robot.look_down(magnitude=abs(y_dir))
-        elif abs(z_dir) > abs(x_dir) and abs(z_dir) > abs(y_dir):
-            # Primarily forward/backward motion
-            if z_dir > 0.5:
-                logger.info("Robot command: Move backward")
-                # robot.move_backward(magnitude=z_dir)
-            elif z_dir < -0.5:
-                logger.info("Robot command: Move forward")
-                # robot.move_forward(magnitude=abs(z_dir))
+            await self.ws.send(json.dumps({"type": "pong", "ping_timestamp": timestamp}))
 
     async def send_status(self):
         """Send periodic status updates to the spectacles client if paired"""
@@ -256,6 +262,26 @@ class RobotClient:
             except Exception as e:
                 logger.error(f"Error sending status: {e}")
 
+    async def send_sim_images(self):
+        """Stream simulation images when paired"""
+        try:
+            while self.running and self.status == STATUS_PAIRED:
+                try:
+                    # Get simulation image
+                    image_data = self.robot.get_sim_image()
+                    msg_bytes = struct.pack("!cI", b"s", len(image_data)) + image_data
+                    print(f"Sending {len(image_data)} simulation bytes")
+                    if image_data:
+                        # Send the image over websocket
+                        await self.ws.send(msg_bytes)
+                except Exception as e:
+                    logger.error(f"Error sending simulation image: {e}")
+
+                # Send at 1Hz (adjust as needed for performance)
+                await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"Simulation image streaming error: {e}")
+
     async def run(self):
         """Main run loop with automatic reconnection"""
         while self.running:
@@ -264,12 +290,36 @@ class RobotClient:
             if connected:
                 # Start message handler
                 message_task = asyncio.create_task(self.handle_messages())
+                sim_image_task = None
 
                 # Status update loop
                 while self.running and self.ws:
                     if self.status == STATUS_PAIRED:
                         await self.send_status()
+
+                        # Start image streaming if not already running
+                        if sim_image_task is None or sim_image_task.done():
+                            logger.info("Starting simulation image streaming")
+                            sim_image_task = asyncio.create_task(self.send_sim_images())
+                    elif sim_image_task and not sim_image_task.done():
+                        # Cancel image streaming if no longer paired
+                        logger.info("Stopping simulation image streaming")
+                        sim_image_task.cancel()
+                        try:
+                            await sim_image_task
+                        except asyncio.CancelledError:
+                            pass
+                        sim_image_task = None
+
                     await asyncio.sleep(1)
+
+                # Clean up tasks
+                if sim_image_task and not sim_image_task.done():
+                    sim_image_task.cancel()
+                    try:
+                        await sim_image_task
+                    except asyncio.CancelledError:
+                        pass
 
                 # Wait for message handler to complete
                 await message_task
@@ -278,9 +328,7 @@ class RobotClient:
                 # Implement exponential backoff for reconnection
                 logger.info(f"Reconnecting in {self.reconnect_delay} seconds...")
                 await asyncio.sleep(self.reconnect_delay)
-                self.reconnect_delay = min(
-                    self.reconnect_delay * 1.5, self.max_reconnect_delay
-                )
+                self.reconnect_delay = min(self.reconnect_delay * 1.5, self.max_reconnect_delay)
 
     async def stop(self):
         """Stop the client gracefully"""
@@ -291,9 +339,7 @@ class RobotClient:
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Unitree Robot Client for Spectacles Coordination"
-    )
+    parser = argparse.ArgumentParser(description="Unitree Robot Client for Spectacles Coordination")
     parser.add_argument(
         "--server",
         default="wss://spectaclexr.com/ws",
