@@ -1,4 +1,3 @@
-# server.py
 import asyncio
 import json
 import logging
@@ -6,7 +5,6 @@ import os
 import secrets
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Set
 
 import aiohttp_jinja2
 import jinja2
@@ -36,13 +34,13 @@ class Client:
         self.type = client_type
         self.remote_addr = remote_addr
         self.connected_at = datetime.now()
-        self.paired_with: Optional[Client] = None
+        self.paired_with: Client | None = None
         self.messages_received = 0
         self.messages_sent = 0
         self.last_ping_time = 0
         self.last_pong_time = 0
-        self.latency_history: List[float] = []  # In milliseconds
-        self.message_log: List[Dict] = []  # Store recent messages
+        self.latency_history: list[float] = []  # In milliseconds
+        self.message_log: list[dict] = []  # Store recent messages
         self.max_log_size = 100  # Limit message log size
 
     @property
@@ -74,7 +72,7 @@ class Client:
             "id": self.id,
             "type": self.type,
             "remote_addr": self.remote_addr,
-            "connected_at": self.connected_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "connected_at": self.connected_at.isoformat(),
             "is_paired": self.is_paired,
             "paired_with": self.paired_with.id if self.is_paired else None,
             "paired_with_type": self.paired_with.type if self.is_paired else None,
@@ -85,9 +83,9 @@ class Client:
 
 
 # Server state
-clients: Dict[str, Client] = {}  # id -> Client
-unpaired_robots: Set[str] = set()  # client ids
-unpaired_spectacles: Set[str] = set()  # client ids
+clients: dict[str, Client] = {}  # id -> Client
+unpaired_robots: set[str] = set()  # client ids
+unpaired_spectacles: set[str] = set()  # client ids
 
 # Get dashboard password from environment variable
 DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin")
@@ -443,6 +441,16 @@ async def websocket_handler(request):
                     logger.warning(
                         f"Received non-JSON message from {client_id}: {msg.data}"
                     )
+
+            elif msg.type == web.WSMsgType.BINARY:
+                # Image data
+                client.messages_received += 1
+                client.log_message(msg.data, "in")
+                if client.is_paired and not client.paired_with.ws.closed:
+                    paired_client = client.paired_with
+                    paired_client.messages_sent += 1
+                    paired_client.log_message(msg.data, "out")
+                    await paired_client.ws.send_bytes(msg.data)
 
             elif msg.type == web.WSMsgType.ERROR:
                 logger.error(
