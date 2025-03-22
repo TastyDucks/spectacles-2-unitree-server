@@ -53,7 +53,7 @@ class Client:
             return 0
         return sum(self.latency_history) / len(self.latency_history)
 
-    def log_message(self, message, direction, kind: "json" | "bytes" = "json"):
+    def log_message(self, message, direction, kind: str = "json"):
         """Log a message with direction ('in' or 'out')"""
         if len(self.message_log) >= self.max_log_size:
             self.message_log.pop(0)  # Remove oldest message
