@@ -28,6 +28,25 @@ The unitree client can be run locally for testing in "mock" mode. This will allo
 cd unitree-client && uv run . -- --mock --server wss://SERVER_HOST/ws
 ```
 
+If you want to visualize the robot client during development in a devcontainer, on MacOS, you can install XQuartz:
+```sh
+brew install --cask xquartz
+defaults write org.xquartz.X11 nolisten_tcp 0
+open -a XQuartz
+```
+Then grab your IP address:
+```sh
+ifconfig en0 | grep inet
+```
+And set the `DISPLAY` environment variable in the devcontainer:
+```sh
+export DISPLAY=YOUR_IP_ADDRESS:0
+```
+Then:
+```sh
+cd unitree-client && uv run python3.12 -m mujoco.viewer
+```
+
 ### Deployment
 
 - Build the coordination server targeting `linux/amd64` (necessary for `robotpkg-py318-pinocchio`):

@@ -53,7 +53,7 @@ class Client:
             return 0
         return sum(self.latency_history) / len(self.latency_history)
 
-    def log_message(self, message, direction):
+    def log_message(self, message, direction, kind: "json" | "bytes" = "json"):
         """Log a message with direction ('in' or 'out')"""
         if len(self.message_log) >= self.max_log_size:
             self.message_log.pop(0)  # Remove oldest message
@@ -63,6 +63,7 @@ class Client:
                 "timestamp": datetime.now().isoformat(),
                 "direction": direction,
                 "content": message,
+                "kind": kind
             }
         )
 
@@ -445,11 +446,11 @@ async def websocket_handler(request):
             elif msg.type == web.WSMsgType.BINARY:
                 # Image data
                 client.messages_received += 1
-                client.log_message(msg.data, "in")
+                client.log_message(msg.data, "in", "bytes")
                 if client.is_paired and not client.paired_with.ws.closed:
                     paired_client = client.paired_with
                     paired_client.messages_sent += 1
-                    paired_client.log_message(msg.data, "out")
+                    paired_client.log_message(msg.data, "out", "bytes")
                     await paired_client.ws.send_bytes(msg.data)
 
             elif msg.type == web.WSMsgType.ERROR:

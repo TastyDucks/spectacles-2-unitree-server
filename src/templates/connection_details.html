@@ -103,7 +103,13 @@
                 {% for message in client.message_log %}
                 <div class="log-entry {{ message.direction }}">
                     <div class="log-timestamp">{{ message.timestamp }}</div>
-                    <div class="log-content">{{ message.content | tojson }}</div>
+                    <div class="log-content">
+                        {% if message.kind == "bytes" %}
+                            <img src="data:image/rgba;base64,{{ message.content[5:] | b64encode }}" alt="Image data" style="max-width: 100%;">
+                        {% else %}
+                            {{ message.content | tojson }}
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             </div>

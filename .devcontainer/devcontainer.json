@@ -1,12 +1,8 @@
 d// For format details, see https://aka.ms/devcontainer.json.
 {
   "name": "Spectacles-2-Unitree coordination server",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": "..",
-    "target": "dev",
-  },
-    "mounts": [
+  "image": "ghcr.io/tastyducks/spectacles-2-unitree-server.dev:latest",
+  "mounts": [
     {
       "source": "/var/run/docker.sock",
       "target": "/var/run/docker.sock",

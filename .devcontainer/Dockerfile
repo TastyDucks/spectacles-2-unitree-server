@@ -28,16 +28,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     robotpkg-py312-pinocchio \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/opt/openrobots/bin:${PATH}" \
-    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig" \
-    LD_LIBRARY_PATH="/opt/openrobots/lib" \
-    PYTHONPATH="/opt/openrobots/lib/python3.12/site-packages" \
-    CMAKE_PREFIX_PATH="/opt/openrobots"
+ENV PATH="/opt/openrobots/bin:/usr/local/bin:${PATH}" \
+    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
+    LD_LIBRARY_PATH="/opt/openrobots/lib:/usr/local/lib" \
+    PYTHONPATH="/opt/openrobots/lib/python3.12/site-packages:/usr/local/lib/python3.12/site-packages" \
+    CMAKE_PREFIX_PATH="/opt/openrobots:/usr/local"
 
 #
 # Devcontainer
 #
 FROM --platform=linux/amd64 base AS dev
+
+LABEL org.opencontainers.image.description="Spectacles-2-Unitree Coordination Server dev container"
+LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
 
 ARG UV_VERSION=0.6.2
 
@@ -79,8 +82,13 @@ RUN --mount=type=cache,target=/root/.cache/act \
     curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
 
 # Build CycloneDDS
-RUN git clone --depth 1 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
-    && cd /tmp/cyclonedds && mkdir build && cd build \
+RUN git clone https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
+    && cd /tmp/cyclonedds \
+    # The unitree-sdk2py depends on CycloneDDS 0.10.2
+    && git checkout 0.10.2 \
+    && mkdir build && cd build \
     && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
     && cmake --build . --target install \
     && cd / && rm -rf /tmp/cyclonedds
+
+ENV CMAKE_PREFIX_PATH="/usr/local/include/"

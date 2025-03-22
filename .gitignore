@@ -2,3 +2,5 @@
 .DS_STORE
 # Python
 .venv
+*.egg-info
+__pycache__

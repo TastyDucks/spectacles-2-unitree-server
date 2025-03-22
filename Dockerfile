@@ -48,14 +48,17 @@ WORKDIR /app
 
 ADD . .
 
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --no-install-project --no-dev
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
 #
 # Coordination server runtime stage
 #
 FROM --platform=linux/amd64 base AS runtime
+
+LABEL org.opencontainers.image.description="Spectacles-2-Unitree Coordination Server"
+LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
 
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:${PATH}"
