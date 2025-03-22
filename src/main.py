@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -159,12 +160,24 @@ async def force_pair_handler(request):
     raise web.HTTPFound(f"/connection/{client_id}")
 
 
+# Custom filter for base64 encoding binary data
+def b64encode_filter(data):
+    """Convert binary data to base64 encoded string for use in data URIs"""
+    if isinstance(data, bytes):
+        return base64.b64encode(data).decode("utf-8")
+    return ""
+
+
 # Setup the application
 def create_app():
     app = web.Application(middlewares=[auth_middleware])
 
     # Setup Jinja2 templates
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
+    jinja2_loader = jinja2.FileSystemLoader("templates")
+    jinja2_env = aiohttp_jinja2.setup(app, loader=jinja2_loader)
+
+    # Add custom filters
+    jinja2_env.filters["b64encode"] = b64encode_filter
 
     # Add static route
     app.router.add_static("/static/", "static", name="static")
