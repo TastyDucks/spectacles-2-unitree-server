@@ -15,6 +15,50 @@
         function confirmClose() {
             return confirm("Are you sure you want to close this connection?");
         }
+
+        // Function to render RGBA data to canvas
+        function renderRGBAToCanvas(canvasId, base64Data) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            // Get canvas context
+            const ctx = canvas.getContext('2d');
+            
+            // Decode base64 data
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const width = 512;
+            const height = 512;
+            
+            // Set canvas size
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Create ImageData object
+            const imageData = ctx.createImageData(width, height);
+            
+            // Fill pixel data
+            for (let i = 0; i < bytes.length; i += 4) {
+                imageData.data[i] = bytes[i];         // R
+                imageData.data[i + 1] = bytes[i + 1]; // G
+                imageData.data[i + 2] = bytes[i + 2]; // B
+                imageData.data[i + 3] = bytes[i + 3]; // A
+            }
+            
+            // Put the image data to canvas
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        window.addEventListener('load', function() {
+            // Find all canvases with data-rgba attributes and render them
+            document.querySelectorAll('canvas[data-rgba]').forEach(function(canvas) {
+                renderRGBAToCanvas(canvas.id, canvas.getAttribute('data-rgba'));
+            });
+        });
     </script>
 </head>
 
@@ -105,7 +149,10 @@
                     <div class="log-timestamp">{{ message.timestamp }}</div>
                     <div class="log-content">
                         {% if message.kind == "bytes" %}
-                            <img src="data:image/rgba;base64,{{ message.content[5:] | b64encode }}" alt="Image data" style="max-width: 100%;">
+                            <canvas id="rgba-canvas-{{ loop.index }}" data-rgba="{{ message.content[5:] | b64encode }}" 
+                                    style="max-width: 100%;" width="320" height="240">
+                                Image data (RGBA format)
+                            </canvas>
                         {% else %}
                             {{ message.content | tojson }}
                         {% endif %}
