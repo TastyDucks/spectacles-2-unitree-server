@@ -4,6 +4,7 @@ import time
 from collections import deque
 
 import numpy as np
+from PIL import Image
 
 from ik.g1_controller import G1_29_ArmController, G1_29_JointArmIndex
 from ik.g1_solver import G1_29_ArmIK
@@ -14,6 +15,7 @@ class HandMovement:
     handType: str = ""
     wristTransform: np.ndarray
     fingerPositions: np.ndarray
+    headRotQuat: np.ndarray
     timestamp: int = 0
 
     def __init__(self, data: dict):
@@ -23,7 +25,8 @@ class HandMovement:
 
         # The "transform" key is expected to be a list where:
         #   - The first element is the flattened 4x4 wrist transform.
-        #   - The remaining elements are 3D finger positions.
+        #   - Next elements are 3D finger positions.
+        #   - Last element is a quaternion for head rotation
         transform = data.get("transform", [])
         if not transform or len(transform) < 1:
             msg = "Invalid data: missing transform information."
@@ -31,9 +34,15 @@ class HandMovement:
 
         # Convert the wrist transform back to a 4x4 NumPy array.
         self.wristTransform = np.array(transform[0]).reshape(4, 4)
+        # Adjust from centimeters to meters.
+        self.wristTransform[0:3, 3] /= 100.0
 
-        # The rest of the elements are finger positions.
-        self.fingerPositions = np.array(transform[1:])
+        # Remaining until last are fingers
+        self.fingerPositions = np.array(transform[1:-1]).reshape(-1, 3)
+        # Adjust from centimeters to meters.
+        self.fingerPositions /= 100.0
+        # Finally head rotation quat
+        self.headRotQuat = np.array(transform[-1]).reshape(4)
 
 class IK:
     def __init__(self, ik_solver, t: np.ndarray):
@@ -198,8 +207,8 @@ class ArmsAndHands:
         self.q_sol = None
         self.tauff_sol = None
 
-    def render(self):
+    def render(self, x=0, y=0, z=0, w=1) -> Image:
         """
         Render image of movement via meshcat
         """
-        return self.ik.ik_solver.capture_frame()
+        return self.ik.ik_solver.capture_frame(x, y, z, w)

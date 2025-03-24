@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import datetime
 import json
 import logging
 import signal
@@ -10,6 +11,7 @@ import time
 
 import numpy as np
 import websockets
+from PIL import Image, ImageDraw, ImageFont
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
 from unitree_sdk2py.g1.audio.g1_audio_client import AudioClient
 from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
@@ -51,6 +53,8 @@ class Robot:
         logger.info("Initializing arms and hands IK solver...")
         self._arms_and_hands = ik.ik.ArmsAndHands()
 
+        self.head_rot = np.array([0, 0, 0, 1])
+
     def act(self, action: str):
         if self.mock:
             logger.info(f"Mock action: {action}")
@@ -87,8 +91,8 @@ class Robot:
             logger.warning(f"Error handling action: {e}")
 
     async def move_hands(self, movement: ik.ik.HandMovement):
-        # Not printing this because it spams due to high update rate.
         try:
+            self.head_rot = movement.headRotQuat
             await self._arms_and_hands.move(movement, self.mock)
         except Exception as e:
             logger.warning(f"Error handling hand movement: {e}")
@@ -131,7 +135,18 @@ class Robot:
 
     def get_sim_image(self):
         """Get a rendered perspective of the robot's simulated movements"""
-        return self._arms_and_hands.render()
+        x, y, z, w = self.head_rot
+        image: Image = self._arms_and_hands.render(x, y, z, w)
+        # Add timestamp ISO with decimal seconds
+        d = datetime.datetime.now(tz=datetime.UTC)
+        timestamp_str = d.isoformat(timespec="milliseconds")
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+        text = f"{timestamp_str}"
+        # Draw the text
+        draw.text((5, 5), text, fill=(0, 255, 0), font=font)
+        # Return the image as bytes
+        return image.tobytes()
 
 class RobotClient:
     def __init__(self, server_url: str, mock: bool = True):
@@ -149,7 +164,7 @@ class RobotClient:
         """Connect to the server and identify as a robot client"""
         try:
             logger.info(f"Connecting to {self.server_url}")
-            self.ws = await websockets.connect(self.server_url, ping_timeout=30, ping_interval=5)
+            self.ws = await websockets.connect(self.server_url, ping_timeout=60, ping_interval=10)
 
             # Identify as robot
             await self.ws.send(json.dumps({"type": "robot"}))
@@ -204,7 +219,7 @@ class RobotClient:
         ]:
             self.robot.act(data.get("type"))
         elif data.get("type") == "hand_movement":
-            await self.robot.move_hands(ik.ik.HandMovement(data))
+            self.hand_task = asyncio.create_task(self.robot.move_hands(ik.ik.HandMovement(data)))
         else:
             logger.info(f"Received message: {data}")
 
@@ -270,15 +285,14 @@ class RobotClient:
                     # Get simulation image
                     image_data = self.robot.get_sim_image()
                     msg_bytes = struct.pack("!cI", b"s", len(image_data)) + image_data
-                    print(f"Sending {len(image_data)} simulation bytes")
                     if image_data:
                         # Send the image over websocket
                         await self.ws.send(msg_bytes)
                 except Exception as e:
                     logger.error(f"Error sending simulation image: {e}")
 
-                # Send at 1Hz (adjust as needed for performance)
-                await asyncio.sleep(1)
+                # Send at 10Hz (adjust as needed for performance)
+                await asyncio.sleep(0.1)
         except Exception as e:
             logger.error(f"Simulation image streaming error: {e}")
 
@@ -358,7 +372,10 @@ async def main():
     # Handle Ctrl+C gracefully
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(client)))
+        def handle_signal(s=sig):
+            logger.info(f"Received signal {s.name}, shutting down...")
+            asyncio.create_task(shutdown(client))
+        loop.add_signal_handler(sig, handle_signal)
 
     await client.run()
 

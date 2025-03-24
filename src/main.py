@@ -371,6 +371,8 @@ async def websocket_handler(request):
             CLIENT_TYPE_SPECTACLES,
         ]:
             logger.warning(f"Client from {remote_addr} sent invalid type: {msg}")
+            # Kill client connection
+
             await ws.close(code=1008, message=b"Invalid client type")
             return ws
 

@@ -15,6 +15,7 @@ from PIL import Image
 from pinocchio import casadi as cpin
 from pinocchio.robot_wrapper import RobotWrapper
 from pinocchio.visualize import MeshcatVisualizer
+from scipy.spatial.transform import Rotation as R
 
 from ik.utils.weighted_moving_filter import WeightedMovingFilter
 
@@ -185,6 +186,12 @@ class G1_29_ArmIK:
             self.vis.displayFrames(True, frame_ids=[101, 102], axis_length = 0.15, axis_width = 5)
             self.vis.display(pin.neutral(self.reduced_robot.model))
 
+            # Disable the head: `head_link_0`
+            #self.vis.viewer["pinocchio/visuals/head_link_0"].set_property("visible", False)
+
+            # Set the camera's position.
+            #self.vis.setCameraPosition([-0.0030, 0.5174, 0.0132]) # Right over the shoulders.
+
             # Enable the display of end effector target frames with short axis lengths and greater width.
             frame_viz_names = ["L_ee_target", "R_ee_target"]
             FRAME_AXIS_POSITIONS = (
@@ -282,9 +289,15 @@ class G1_29_ArmIK:
             # return sol_q, sol_tauff
             return current_lr_arm_motor_q, np.zeros(self.reduced_robot.model.nv)
 
-    def capture_frame(self):
+    def capture_frame(self, x=0, y=0, z=0, w=1) -> Image:
         """
         Capture a screenshot from Meshacat viewer, convert to OpenCV image bytes, and return.
         """
+        viewer: MeshcatVisualizer = self.vis.viewer
+        #rotation_matrix = R.from_quat([x, y, z, w]).as_matrix()
+        #transform = np.eye(4)
+        #transform[0:3, 0:3] = rotation_matrix
+        #transform[0:3, 3] = [-0.0030, 0.5174, 0.0132] # Right over the shoulders.
+        #viewer["/Cameras/default/rotated"].set_transform(transform)
         img: Image = self.vis.viewer.get_image(512, 512).convert("RGBA")
-        return img.tobytes()
+        return img
