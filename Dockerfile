@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc > /etc/apt/keyrings/robotpkg.asc \
+RUN . /etc/lsb-release && \
+    curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc > /etc/apt/keyrings/robotpkg.asc \
     && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" > /etc/apt/sources.list.d/robotpkg.list \
     # pinocchio
     && curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
@@ -23,7 +24,7 @@ RUN curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc > /et
     # Git LFS
     && curl -fsSL https://packagecloud.io/github/git-lfs/gpgkey \
         | gpg --dearmor -o /etc/apt/keyrings/github_git-lfs-archive-keyring.gpg \
-    && curl -fsSL https://packagecloud.io/install/repositories/github/git-lfs/config_file.list?os=${DISTRIB_ID}\&dist=${DISTRIB_CODENAME} > /etc/apt/sources.list.d/github_git-lfs.list
+    && curl -fsSL "https://packagecloud.io/install/repositories/github/git-lfs/config_file.list?os=${DISTRIB_ID}&dist=${DISTRIB_CODENAME}" > /etc/apt/sources.list.d/github_git-lfs.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-all-dev \

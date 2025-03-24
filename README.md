@@ -28,24 +28,20 @@ The unitree client can be run locally for testing in "mock" mode. This will allo
 cd unitree-client && uv run . -- --mock --server wss://SERVER_HOST/ws
 ```
 
-If you want to visualize the robot client during development in a devcontainer, on MacOS, you can install XQuartz:
-```sh
-brew install --cask xquartz
-defaults write org.xquartz.X11 nolisten_tcp 0
-open -a XQuartz
-```
-Then grab your IP address:
-```sh
-ifconfig en0 | grep inet
-```
-And set the `DISPLAY` environment variable in the devcontainer:
-```sh
-export DISPLAY=YOUR_IP_ADDRESS:0
-```
-Then:
-```sh
-cd unitree-client && uv run python3.12 -m mujoco.viewer
-```
+
+This repo includes a devcontainer that has the Github CLI and `act`, a local Github actions runner.
+
+- Github authentication: To use `act`, you need to authenticate with Github. Run:
+  ```bash
+  gh auth login -s repo,gist,read:org,write:packages,read:packages,delete:packages
+  ```
+  The package permissions are needed for `act` to write to the Github package registry.
+  
+  If you want to run just a single action, you can use the `--job` flag:
+   ```bash
+   act --job build-and-push
+   ```
+- Host mounting: the host's Docker socket (assuming MacOS and Linux) is mounted into the container workspace.
 
 ### Deployment
 
