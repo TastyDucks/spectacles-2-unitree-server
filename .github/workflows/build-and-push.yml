@@ -1,8 +1,6 @@
 name: Build and Push Docker Images
 on:
   push:
-    paths:
-      - "api/**"
   pull_request:
   workflow_dispatch:
 permissions:
