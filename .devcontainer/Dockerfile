@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     # Needed for some Python dependencies that want the full non-headless version of OpenCV.
     libgl1 \
+    libglib2.0-0 \
     lsb-release \
     python3.12 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*

@@ -32,10 +32,12 @@ FORWARD_SPEED = 0.3  # Forward/backward speed in m/s
 LATERAL_SPEED = 0.2  # Left/right speed in m/s
 ROTATION_SPEED = 0.6  # Rotation speed in rad/s
 
+
 class Robot:
     """
     A wrapper around the unitree LocoClient, AudioClient, and the ArmsAndHands class.
     """
+
     def __init__(self, mock: bool = True):
         self.mock = mock
         if not mock:
@@ -51,7 +53,7 @@ class Robot:
         else:
             self._loco = None
         logger.info("Initializing arms and hands IK solver...")
-        self._arms_and_hands = ik.ik.ArmsAndHands()
+        self._arms_and_hands = ik.ik.ArmsAndHands(mock=mock)
 
         self.head_rot = np.array([0, 0, 0, 1])
 
@@ -92,7 +94,7 @@ class Robot:
 
     async def move_hands(self, movement: ik.ik.HandMovement):
         try:
-            self.head_rot = movement.headRotQuat
+            self.head_rot = movement._rawHeadRotQuat
             await self._arms_and_hands.move(movement, self.mock)
         except Exception as e:
             logger.warning(f"Error handling hand movement: {e}")
@@ -148,6 +150,7 @@ class Robot:
         # Return the image as bytes
         return image.tobytes()
 
+
 class RobotClient:
     def __init__(self, server_url: str, mock: bool = True):
         self.server_url = server_url
@@ -156,8 +159,6 @@ class RobotClient:
         self.paired_with = None
         self.status = STATUS_DISCONNECTED
         self.running = True
-        self.reconnect_delay = 1  # Start with 1 second delay
-        self.max_reconnect_delay = 30  # Max 30 seconds between reconnects
         self.robot = Robot(mock=mock)
 
     async def connect(self):
@@ -170,9 +171,6 @@ class RobotClient:
             await self.ws.send(json.dumps({"type": "robot"}))
             logger.info("Connected and identified as robot client")
 
-            # Reset reconnect delay on successful connection
-            self.reconnect_delay = 1
-
             return True
         except Exception as e:
             logger.exception(f"Connection failed")
@@ -182,16 +180,17 @@ class RobotClient:
         """Process incoming messages from the server"""
         try:
             while self.running and self.ws:
-                message = await self.ws.recv()
                 try:
-                    data = json.loads(message)
-                    await self.process_message(data)
-                except json.JSONDecodeError:
-                    logger.warning(f"Received non-JSON message: {message}")
-        except websockets.exceptions.ConnectionClosed as e:
-            logger.warning(f"Connection closed: {e}")
-            self.status = STATUS_DISCONNECTED
-            self.paired_with = None
+                    message = await self.ws.recv()
+                    try:
+                        data = json.loads(message)
+                        await self.process_message(data)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Received non-JSON message: {message}")
+                except websockets.exceptions.ConnectionClosed as e:
+                    logger.warning(f"Connection closed: {e}")
+                    self.status = STATUS_DISCONNECTED
+                    self.paired_with = None
         except Exception as e:
             logger.error(f"Error handling messages: {e}")
 
@@ -219,7 +218,8 @@ class RobotClient:
         ]:
             self.robot.act(data.get("type"))
         elif data.get("type") == "hand_movement":
-            self.hand_task = asyncio.create_task(self.robot.move_hands(ik.ik.HandMovement(data)))
+            movement = ik.ik.HandMovement(data)
+            await self.robot.move_hands(movement)
         else:
             logger.info(f"Received message: {data}")
 
@@ -234,23 +234,23 @@ class RobotClient:
             self.paired_with = data.get("paired_with", {})
             msg = f"Paired with {self.paired_with.get('type')} client ID: {self.paired_with.get('id')}"
             logger.info(msg)
-            self.robot.rgb(0, 255, 0) # Green LED for paired status
+            self.robot.rgb(0, 255, 0)  # Green LED for paired status
             self.robot.tts(msg)
         elif old_status == STATUS_PAIRED and self.status == STATUS_WAITING:
             logger.info(f"Unpairing: {data.get('message')}")
             self.paired_with = None
-            self.robot.rgb(255, 255, 0) # Yellow LED for waiting.
+            self.robot.rgb(255, 255, 0)  # Yellow LED for waiting.
             self.robot.tts("Hasta la vista baby")
         elif self.status == STATUS_WAITING:
             if "client_id" in data:
                 self.client_id = data.get("client_id")
             msg = f"Client ID: {self.client_id} Waiting for pair: {data.get('message')}"
             logger.info(msg)
-            self.robot.rgb(255, 255, 0) # Yellow LED for waiting.
+            self.robot.rgb(255, 255, 0)  # Yellow LED for waiting.
             self.robot.tts("Waiting")
         elif self.status == STATUS_DISCONNECTED:
             logger.info(f"Disconnected: {data.get('message')}")
-            self.robot.rgb(0, 0, 0) # LED off when disconnected.
+            self.robot.rgb(0, 0, 0)  # LED off when disconnected.
             self.robot.tts("I'll be back")
 
     async def handle_ping(self, data: dict):
@@ -260,94 +260,90 @@ class RobotClient:
             await self.ws.send(json.dumps({"type": "pong", "ping_timestamp": timestamp}))
 
     async def send_status(self):
-        """Send periodic status updates to the spectacles client if paired"""
-        if self.status == STATUS_PAIRED and self.ws:
-            try:
-                await self.ws.send(
-                    json.dumps(
-                        {
-                            "type": "robot_status",
-                            "timestamp": time.time(),
-                            "battery": 85,  # Example value
-                            "position": [0, 0, 0],  # Example position
-                            "orientation": [0, 0, 0, 1],  # Example quaternion
-                        }
+        """Send status updates to the spectacles client if paired"""
+        try:
+            while self.running:
+                if self.ws and self.status == STATUS_PAIRED:
+                    await self.ws.send(
+                        json.dumps(
+                            {
+                                "type": "robot_status",
+                                "timestamp": time.time(),
+                                "battery": 85,  # Example value
+                                "position": [0, 0, 0],  # Example position
+                                "orientation": [0, 0, 0, 1],  # Example quaternion
+                            }
+                        )
                     )
-                )
-            except Exception as e:
-                logger.error(f"Error sending status: {e}")
+                await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"Error sending status: {e}")
 
     async def send_sim_images(self):
-        """Stream simulation images when paired"""
-        try:
-            while self.running and self.status == STATUS_PAIRED:
-                try:
-                    # Get simulation image
-                    image_data = self.robot.get_sim_image()
-                    msg_bytes = struct.pack("!cI", b"s", len(image_data)) + image_data
-                    if image_data:
-                        # Send the image over websocket
-                        await self.ws.send(msg_bytes)
-                except Exception as e:
-                    logger.error(f"Error sending simulation image: {e}")
+        """Stream simulation images with adaptive framerate"""
+        fps_target = 30  # Target FPS
+        min_frame_time = 1.0 / fps_target
+        actual_fps = fps_target
 
-                # Send at 10Hz (adjust as needed for performance)
-                await asyncio.sleep(0.1)
-        except Exception as e:
-            logger.error(f"Simulation image streaming error: {e}")
+        # For tracking actual FPS
+        fps_tracking_period = 5.0  # seconds
+        frame_count = 0
+        period_start = time.monotonic()
+
+        try:
+            while self.running:
+                if self.ws and self.status == STATUS_PAIRED:
+                    frame_start = time.monotonic()
+                    try:
+                        image_data = self.robot.get_sim_image()
+                        if image_data:
+                            msg_bytes = struct.pack("!cI", b"s", len(image_data)) + image_data
+                            await self.ws.send(msg_bytes)
+                            frame_count += 1
+
+                        # Track actual FPS
+                        now = time.monotonic()
+                        if now - period_start >= fps_tracking_period:
+                            actual_fps = frame_count / (now - period_start)
+                            logger.info(f"Image streaming actual FPS: {actual_fps:.1f}")
+                            frame_count = 0
+                            period_start = now
+
+                        # Adaptive sleep based on processing time
+                        elapsed = time.monotonic() - frame_start
+                        sleep_time = max(0, min_frame_time - elapsed)
+                        await asyncio.sleep(sleep_time)
+
+                    except Exception as e:
+                        logger.error(f"Error in image streaming: {e}")
+                        await asyncio.sleep(1)  # Backoff on error
+                else:
+                    await asyncio.sleep(0.1)
+
+        except asyncio.CancelledError:
+            logger.info("Image streaming task cancelled")
 
     async def run(self):
-        """Main run loop with automatic reconnection"""
-        while self.running:
-            connected = await self.connect()
-
-            if connected:
-                # Start message handler
-                message_task = asyncio.create_task(self.handle_messages())
-                sim_image_task = None
-
-                # Status update loop
-                while self.running and self.ws:
-                    if self.status == STATUS_PAIRED:
-                        await self.send_status()
-
-                        # Start image streaming if not already running
-                        if sim_image_task is None or sim_image_task.done():
-                            logger.info("Starting simulation image streaming")
-                            sim_image_task = asyncio.create_task(self.send_sim_images())
-                    elif sim_image_task and not sim_image_task.done():
-                        # Cancel image streaming if no longer paired
-                        logger.info("Stopping simulation image streaming")
-                        sim_image_task.cancel()
-                        try:
-                            await sim_image_task
-                        except asyncio.CancelledError:
-                            pass
-                        sim_image_task = None
-
-                    await asyncio.sleep(1)
-
-                # Clean up tasks
-                if sim_image_task and not sim_image_task.done():
-                    sim_image_task.cancel()
-                    try:
-                        await sim_image_task
-                    except asyncio.CancelledError:
-                        pass
-
-                # Wait for message handler to complete
-                await message_task
-
-            if self.running:
-                # Implement exponential backoff for reconnection
-                logger.info(f"Reconnecting in {self.reconnect_delay} seconds...")
-                await asyncio.sleep(self.reconnect_delay)
-                self.reconnect_delay = min(self.reconnect_delay * 1.5, self.max_reconnect_delay)
+        self.shutdown_event = asyncio.Event()
+        connected = await self.connect()
+        if connected:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(self.handle_messages())
+                tg.create_task(self.send_sim_images())
+                tg.create_task(self.send_status())
+                await self.shutdown_event.wait()
+        else:
+            logger.error("Failed to connect to the server")
 
     async def stop(self):
         """Stop the client gracefully"""
         self.running = False
+        self.shutdown_event.set()
         if self.ws:
+            try:
+                await self.ws.send(json.dumps({"type": "unpair"}))
+            except Exception as e:
+                logger.exception("Error sending unpair message")
             await self.ws.close()
         logger.info("Robot client stopped")
 
@@ -368,14 +364,10 @@ async def main():
     args = parser.parse_args()
 
     client = RobotClient(args.server, mock=args.mock)
-
-    # Handle Ctrl+C gracefully
     loop = asyncio.get_running_loop()
+
     for sig in (signal.SIGINT, signal.SIGTERM):
-        def handle_signal(s=sig):
-            logger.info(f"Received signal {s.name}, shutting down...")
-            asyncio.create_task(shutdown(client))
-        loop.add_signal_handler(sig, handle_signal)
+        loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(shutdown(client)))
 
     await client.run()
 
@@ -387,8 +379,4 @@ async def shutdown(client):
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Exiting...")
-        sys.exit(0)
+    asyncio.run(main())

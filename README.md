@@ -43,6 +43,12 @@ This repo includes a devcontainer that has the Github CLI and `act`, a local Git
    ```
 - Host mounting: the host's Docker socket (assuming MacOS and Linux) is mounted into the container workspace.
 
+#### Troubleshooting
+
+If you see a message like `*** buffer overflow detected ***: terminated`, it probably means the C++ bindings for the Unitree code are attempting to connect to the robot and failing.
+
+In development (working off the robot), be sure to pass `--mock` when running the Unitree client.
+
 ### Deployment
 
 - Build the coordination server targeting `linux/amd64` (necessary for `robotpkg-py318-pinocchio`):
