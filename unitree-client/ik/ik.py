@@ -48,17 +48,19 @@ T_rw_sw[:3, :3] = R_rw_sw
 # robot world -> spectacles world
 T_rw_sw = np.linalg.inv(T_rw_sw)
 
+R_wrists = R.from_euler("xyz", [np.pi / 2, 0, np.pi / 2])
+
 # Rotation from Spectacles left wrist in head frame (X Right, Y Up, Z Back) to Robot left hand (X Front, Y Up, Z Right)
-R_rlh_slw = np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]])
+R_rlh_slw = R.from_matrix(np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]])) * R_wrists
 T_rlh_slw = np.eye(4)
-T_rlh_slw[:3, :3] = R_rlh_slw
+T_rlh_slw[:3, :3] = R_rlh_slw.as_matrix()
 # spectacles left wrist -> robot left hand
 T_slw_rlh = np.linalg.inv(T_rlh_slw)
 
 # Rotation from Spectacles right wrist in head frame (X Right, Y Up, Z Back) to Robot right hand (X Front, Y Down, Z Left)
-R_rrh_srw = np.array([[0, 0, -1], [0, -1, 0], [-1, 0, 0]])
+R_rrh_srw = R.from_matrix(np.array([[0, 0, -1], [0, -1, 0], [-1, 0, 0]])) * R_wrists
 T_rrh_srw = np.eye(4)
-T_rrh_srw[:3, :3] = R_rrh_srw
+T_rrh_srw[:3, :3] = R_rrh_srw.as_matrix()
 # spectacles right wrist -> robot right hand
 T_srw_rrh = np.linalg.inv(T_rrh_srw)
 
@@ -95,12 +97,11 @@ def fast_mat_inv(mat: np.ndarray) -> np.ndarray:
     ret[:3, 3] = -mat[:3, :3].T @ mat[:3, 3]
     return ret
 
-
 class HandMovement:
     type: str = "hand_movement"
     # The hand, either "left" or "right"
     handType: str = ""
-    # Spectacles data. This is already relative to the head.
+    # Spectacles data.
     _rawWristTransform: np.ndarray
     # Spectacles data. These are already relative to the wrists.
     _rawFingerPositions: np.ndarray
@@ -135,7 +136,10 @@ class HandMovement:
         # Extract and scale.
         #
 
-        # Wrist transform is relative to the head.
+        # Head transform
+        self.headMat = np.array(transform[-1]).reshape(4, 4)
+
+        # Wrist transform
         self._rawWristTransform = np.array(transform[0]).reshape(4, 4)
         self._rawWristTransform[0:3, 3] /= 100.0  # cm -> m
 
@@ -143,12 +147,11 @@ class HandMovement:
         self._rawFingerPositions = np.array(transform[1:-1]).reshape(-1, 3)
         self._rawFingerPositions /= 100.0  # cm -> m
 
-        # Head transform
-        self.headMat = np.array(transform[-1]).reshape(4, 4)
-
         #
         # Convert from Spectacles AR coordinate space to Robot space
         #
+
+        T_rw_sh = T_rw_sw @ self.headMat
 
         # Head pose in Robot world space
         self.headMat = np.eye(4)
@@ -157,13 +160,13 @@ class HandMovement:
         T_sh_swrist = self._rawWristTransform
 
         if self.handType == "left":
-            T_rw_slw = self.headMat @ T_sh_swrist
+            T_rw_slw = T_rw_sh @ T_sh_swrist
             self.leftWristMat = T_rw_slw @ T_slw_rlh
             self.leftWristMat[0:3, 3] += offset_rw_rh
             R_rlh_slw_mat = T_rlh_slw[:3, :3]
             self.leftHandFingerPos = (R_rlh_slw_mat @ self._rawFingerPositions.T).T
         elif self.handType == "right":
-            T_rw_srw = self.headMat @ T_sh_swrist
+            T_rw_srw = T_rw_sh @ T_sh_swrist
             self.rightWristMat = T_rw_srw @ T_srw_rrh
             self.rightWristMat[0:3, 3] += offset_rw_rh
             R_rrh_srw_mat = T_rrh_srw[:3, :3]

@@ -94,7 +94,6 @@ class Robot:
 
     async def move_hands(self, movement: ik.ik.HandMovement):
         try:
-            self.head_rot = movement._rawHeadRotQuat
             await self._arms_and_hands.move(movement, self.mock)
         except Exception as e:
             logger.warning(f"Error handling hand movement: {e}")
