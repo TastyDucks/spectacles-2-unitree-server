@@ -2,6 +2,58 @@
 
 Connects Snapchat Spectacles Lens client to a Unitree G1 robot client for XR teleop.
 
+## Architecture
+
+The server uses `aiohttp` and `jinja2` to serve a simple web interface for pairing together Spectacles and Unitree G1 clients on a first-come-first-serve basis and monitoring messages. The dashboard is served at the root `/`, and the WebSocket server is served at `/ws`.
+
+The server also handles inverse kinematics calculations between Spectacles' wrist and hand keypoints and the robot's URDF model.
+
+Clients are not authenticated currently, and messages are passed transparently between the two clients without modification.
+
+### Spectacles-space and Unitree-space transformations
+
+Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0]
+
+The **spectacles world basis** is centered on the user's head (X right, Y up, Z back), and uses a right-handed coordinate system.
+
+Reference pose:
+ - Hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward
+
+The Spectacles has non-uniform joint bases.
+If the entries share a symbol, they use the same basis:
+
+- Left hand:
+  | N   | wrist | pinky | ring | middle | index | thumb |
+  | --- | ----- | ----- | ---- | ------ | ----- | ----- |
+  | 3   |       | P     | R    | M      | M     | A     |
+  | 2   |       | X     | X    | X      | X     | J     |
+  | 1   |       | X     | X    | X      | X     | J     |
+  | 0   | X     | X     | X    | X      | X     | J     |
+- Right hand:
+  | N   | wrist | thumb | index | middle | ring | pinky |
+  | --- | ----- | ----- | ----- | ------ | ---- | ----- |
+  | 3   |       | B     | M     | M      | R    | P     |
+  | 2   |       | K     | X     | X      | X    | X     |
+  | 1   |       | K     | X     | X      | X    | X     |
+  | 0   | X     | K     | X     | X      | X    | X     |
+
+
+For reference, review the Spectacles [landmark names].
+
+#### X
+  - Hand: left, right
+    - Landmarks: wrist, pinky-0, pinky-1, pinky-2, ring-0, ring-1, ring-2, middle-0, middle-1, middle-2, index-0, index-1, index-2
+    - Right-handed coordinate system
+    - X axis points back to palm
+    - Y axis pinky to index
+    - Z axis wrist to middle
+
+#### P
+
+ - Hand: left
+   - Landmarks: pinky-3
+   - WIP
+
 ## Usage
 
 ### Development
@@ -62,10 +114,5 @@ WIP. Basically, get the Unitree G1 client running on the robot's computer with a
 
 > **IMPORTANT**: The server should have the environment variable `DASHBOARD_PASSWORD` set to something with a decent amount of entropy. The default password is `admin`.
 
-## Architecture
-
-The server uses `aiohttp` and `jinja2` to serve a simple web interface for pairing together Spectacles and Unitree G1 clients on a first-come-first-serve basis and monitoring messages. The dashboard is served at the root `/`, and the WebSocket server is served at `/ws`.
-
-The server also handles inverse kinematics calculations between Spectacles' wrist and hand keypoints and the robot's URDF model.
-
-Clients are not authenticated currently, and messages are passed transparently between the two clients without modification.
+[landmark names]: https://developers.snap.com/lens-studio/api/lens-scripting/enums/Packages_SpectaclesInteractionKit_Providers_HandInputData_LandmarkNames.LandmarkName.html
+[SIK-0.10.0]: https://developers.snap.com/spectacles/spectacles-frameworks/spectacles-interaction-kit/release-notes#v0100

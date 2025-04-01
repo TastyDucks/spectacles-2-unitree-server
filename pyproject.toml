@@ -51,3 +51,8 @@
             "W",
         ]
         unfixable = ["B"]
+
+[dependency-groups]
+dev = [
+    "scipy-stubs>=1.15.2.1",
+]

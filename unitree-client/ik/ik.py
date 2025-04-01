@@ -6,63 +6,42 @@ from enum import Enum
 
 import numpy as np
 from PIL import Image
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation
 
 from ik.g1_controller import G1_29_ArmController, G1_29_JointArmIndex
 from ik.g1_solver import G1_29_ArmIK
 
-## Transformation matrix to flip axes from Spectacles to Robot space.
-# T_xr_to_robot_space = np.array(
-#   [
-#       [0, 0, -1, 0],  # Robot x = -z
-#       [-1, 0, 0, 0],  # Robot y = -x
-#       [0, 1, 0, 0],  # Robot z = y
-#       [0, 0, 0, 1],
-#   ]
-# )
+# Spectacles world space (X right, Y up, Z back) to robot world space (X front, Y left, Z up)
+R_specs_to_robot = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
+T_specs_to_robot = np.eye(4)
+T_specs_to_robot[:3, :3] = R_specs_to_robot
+
+# Spectacles left wrist
+# - X right, back to palm
+# - Y up, pinky to index
+# - Z back, wrist to middle
 #
-## Transformation matrix to flip left wrist axes from Spectacles to Robot space.
-# T_xr_left_wrist_to_robot_space = np.array(
-#   [
-#       [0, 0, -1, 0],  # Robot x = -z
-#       [-1, 0, 0, 0],  # Robot y = y
-#       [0, 1, 0, 0],  # Robot z = x
-#       [0, 0, 0, 1],
-#   ]
-# )
+# Robot left wrist:
+# - X wrist to middle
+# - Y palm to back
+# - Z pinky to index
 #
-## Transformation matrix to flip right wrist axes from Spectacles to Robot space.
-# T_xr_right_wrist_to_robot_space = np.array(
-#   [
-#       [0, 0, -1, 0],  # Robot x = -z
-#       [-1, 0, 0, 0],  # Robot y = -x
-#       [0, 1, 0, 0],  # Robot z = y
-#       [0, 0, 0, 1],
-#   ]
-# )
+R_specs_wrist_to_robot_left = Rotation.from_euler("xyz", [90, -90, 0], degrees=True).as_matrix()
+T_local_fix_left = np.eye(4)
+T_local_fix_left[:3, :3] = R_specs_wrist_to_robot_left
 
-# Rotation from Spectacles frame (X Right, Y Up, Z Back) to Robot frame (X Front, Y Left, Z Up)
-R_rw_sw = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
-T_rw_sw = np.eye(4)
-T_rw_sw[:3, :3] = R_rw_sw
-# robot world -> spectacles world
-T_rw_sw = np.linalg.inv(T_rw_sw)
-
-R_wrists = R.from_euler("xyz", [np.pi / 2, 0, np.pi / 2])
-
-# Rotation from Spectacles left wrist in head frame (X Right, Y Up, Z Back) to Robot left hand (X Front, Y Up, Z Right)
-R_rlh_slw = R.from_matrix(np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]])) * R_wrists
-T_rlh_slw = np.eye(4)
-T_rlh_slw[:3, :3] = R_rlh_slw.as_matrix()
-# spectacles left wrist -> robot left hand
-T_slw_rlh = np.linalg.inv(T_rlh_slw)
-
-# Rotation from Spectacles right wrist in head frame (X Right, Y Up, Z Back) to Robot right hand (X Front, Y Down, Z Left)
-R_rrh_srw = R.from_matrix(np.array([[0, 0, -1], [0, -1, 0], [-1, 0, 0]])) * R_wrists
-T_rrh_srw = np.eye(4)
-T_rrh_srw[:3, :3] = R_rrh_srw.as_matrix()
-# spectacles right wrist -> robot right hand
-T_srw_rrh = np.linalg.inv(T_rrh_srw)
+# Spectacles right wrist:
+# - X right, back to palm
+# - Y up, pinky to index
+# - Z back, wrist to middle
+#
+# Robot right wrist:
+# - X wrist to middle
+# - Y back to palm
+# - Z pinky to index
+R_specs_wrist_to_robot_right = Rotation.from_euler("xyz", [90, 90, 0], degrees=True).as_matrix()
+T_local_fix_right = np.eye(4)
+T_local_fix_right[:3, :3] = R_specs_wrist_to_robot_right
 
 # For G1 initial position
 const_right_wrist_default = np.array([[1, 0, 0, 0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]])
@@ -71,11 +50,12 @@ const_right_wrist_default = np.array([[1, 0, 0, 0.15], [0, 1, 0, 1.13], [0, 0, 1
 const_left_wrist_default = np.array([[1, 0, 0, -0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]])
 
 # Offset, in meters, from the robot's world origin (its waist) to the robot's head.
-offset_rw_rh = np.array(
+T_robot_origin_to_robot_head = np.array(
     [
-        0.15,  # x = front
-        0.0,  # y = left
-        0.45,  # z = up
+        [1, 0, 0, 0.15],  # Translation in X by 0.15m
+        [0, 1, 0, 0],  # Translation in Y by 0m
+        [0, 0, 1, 0.45],  # Translation in Z by 0.45m
+        [0, 0, 0, 1],
     ]
 )
 
@@ -96,6 +76,7 @@ def fast_mat_inv(mat: np.ndarray) -> np.ndarray:
     ret[:3, :3] = mat[:3, :3].T
     ret[:3, 3] = -mat[:3, :3].T @ mat[:3, 3]
     return ret
+
 
 class HandMovement:
     type: str = "hand_movement"
@@ -137,10 +118,10 @@ class HandMovement:
         #
 
         # Head transform
-        self.headMat = np.array(transform[-1]).reshape(4, 4)
+        self._rawHeadTransform = np.array(transform[-1]).reshape(4, 4)
 
         # Wrist transform
-        self._rawWristTransform = np.array(transform[0]).reshape(4, 4)
+        self._rawWristTransform = np.array(transform[0]).reshape(4, 4).T
         self._rawWristTransform[0:3, 3] /= 100.0  # cm -> m
 
         # Finger positions are relative to the wrist.
@@ -151,29 +132,27 @@ class HandMovement:
         # Convert from Spectacles AR coordinate space to Robot space
         #
 
-        T_rw_sh = T_rw_sw @ self.headMat
-
-        # Head pose in Robot world space
-        self.headMat = np.eye(4)
-
-        # Spectacles wrist pose relative to the head
-        T_sh_swrist = self._rawWristTransform
+        # Head
+        self.headMat = T_specs_to_robot @ self._rawHeadTransform @ fast_mat_inv(T_specs_to_robot)
+        head_pos_specs = self._rawHeadTransform[:3, 3]
 
         if self.handType == "left":
-            T_rw_slw = T_rw_sh @ T_sh_swrist
-            self.leftWristMat = T_rw_slw @ T_slw_rlh
-            self.leftWristMat[0:3, 3] += offset_rw_rh
-            R_rlh_slw_mat = T_rlh_slw[:3, :3]
-            self.leftHandFingerPos = (R_rlh_slw_mat @ self._rawFingerPositions.T).T
+            # Local rotation about the wrist's own axes in Spectacles space.
+            T_wrist_fixed = self._rawWristTransform @ T_local_fix_left
+            # Convert to robot space.
+            T_wrist_in_robot = T_specs_to_robot @ T_wrist_fixed @ fast_mat_inv(T_specs_to_robot)
+            # Translate.
+            self.leftWristMat = T_robot_origin_to_robot_head @ T_wrist_in_robot
         elif self.handType == "right":
-            T_rw_srw = T_rw_sh @ T_sh_swrist
-            self.rightWristMat = T_rw_srw @ T_srw_rrh
-            self.rightWristMat[0:3, 3] += offset_rw_rh
-            R_rrh_srw_mat = T_rrh_srw[:3, :3]
-            self.rightHandFingerPos = (R_rrh_srw_mat @ self._rawFingerPositions.T).T
+            T_wrist_fixed = self._rawWristTransform @ T_local_fix_right
+            T_wrist_in_robot = T_specs_to_robot @ T_wrist_fixed @ fast_mat_inv(T_specs_to_robot)
+            self.rightWristMat = T_robot_origin_to_robot_head @ T_wrist_in_robot
         else:
-            msg = f"Invalid hand type: {self.handType}, expected 'left' or 'right'."
+            msg = f"Invalid hand type: {self.handType}. Expected 'left' or 'right'."
             raise ValueError(msg)
+
+        # Finger positions
+        # TODO. These need to be relative to the wrists.
 
 
 class IK:

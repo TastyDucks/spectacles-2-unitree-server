@@ -3,14 +3,14 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-permissions:
-  id-token: write
-  contents: read
-  packages: write
 env:
   URL: ghcr.io/${{ github.repository }}
 jobs:
   build-and-push:
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     strategy:
       matrix:

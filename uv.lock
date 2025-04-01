@@ -334,6 +334,18 @@ wheels = [
 ]
 
 [[package]]
+name = "optype"
+version = "0.9.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/3c/9d59b0167458b839273ad0c4fc5f62f787058d8f5aed7f71294963a99471/optype-0.9.3.tar.gz", hash = "sha256:5f09d74127d316053b26971ce441a4df01f3a01943601d3712dd6f34cdfbaf48", size = 96143 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/d8/ac50e2982bdc2d3595dc2bfe3c7e5a0574b5e407ad82d70b5f3707009671/optype-0.9.3-py3-none-any.whl", hash = "sha256:2935c033265938d66cc4198b0aca865572e635094e60e6e79522852f029d9e8d", size = 84357 },
+]
+
+[[package]]
 name = "pillow"
 version = "11.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -479,6 +491,18 @@ wheels = [
 ]
 
 [[package]]
+name = "scipy-stubs"
+version = "1.15.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "optype" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/51/3d6dd7233d8fe19063cf0f4280fabbf5a0b0eaf270438808ca96b57eb118/scipy_stubs-1.15.2.1.tar.gz", hash = "sha256:ba9590ef3cd24511dced121ac0a9c8d9d0681ca5ac091128f0f7ba5a936a8693", size = 274081 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/9a/1019c6177105d8a26f9b29ad17b280c4d9495eedcd78b819ef8cee6a7c28/scipy_stubs-1.15.2.1-py3-none-any.whl", hash = "sha256:10977d731ec9b3fbff95dd5868903c9cd1caf8621f4ff8b3b45ef30148337bde", size = 458329 },
+]
+
+[[package]]
 name = "spectacles-2-unitree"
 version = "0.1.0"
 source = { virtual = "." }
@@ -494,6 +518,11 @@ dependencies = [
     { name = "websockets" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "scipy-stubs" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
@@ -505,6 +534,18 @@ requires-dist = [
     { name = "pillow", specifier = ">=11.1.0" },
     { name = "pyzmq", specifier = ">=26.3.0" },
     { name = "websockets", specifier = ">=15.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "scipy-stubs", specifier = ">=1.15.2.1" }]
+
+[[package]]
+name = "typing-extensions"
+version = "4.13.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/3e/b00a62db91a83fff600de219b6ea9908e6918664899a2d85db222f4fbf19/typing_extensions-4.13.0.tar.gz", hash = "sha256:0a4ac55a5820789d87e297727d229866c9650f6521b64206413c4fbada24d95b", size = 106520 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/86/39b65d676ec5732de17b7e3c476e45bb80ec64eb50737a8dce1a4178aba1/typing_extensions-4.13.0-py3-none-any.whl", hash = "sha256:c8dd92cc0d6425a97c18fbb9d1954e5ff92c1ca881a309c45f06ebc0b79058e5", size = 45683 },
 ]
 
 [[package]]
