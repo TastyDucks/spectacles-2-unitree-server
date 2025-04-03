@@ -1,7 +1,7 @@
 #
 # Base stage for all images
 #
-FROM --platform=linux/amd64 ubuntu:noble AS base
+FROM ubuntu:noble AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN . /etc/lsb-release && \
     curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc > /etc/apt/keyrings/robotpkg.asc \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" > /etc/apt/sources.list.d/robotpkg.list \
+    && echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" > /etc/apt/sources.list.d/robotpkg.list \
     # pinocchio
     && curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
         | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
@@ -43,7 +43,7 @@ ENV PATH="/opt/openrobots/bin:/usr/local/bin:${PATH}" \
 #
 # Devcontainer
 #
-FROM --platform=linux/amd64 base AS dev
+FROM base AS dev
 
 LABEL org.opencontainers.image.description="Spectacles-2-Unitree Coordination Server dev container"
 LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"

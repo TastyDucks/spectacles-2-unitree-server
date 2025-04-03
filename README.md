@@ -16,8 +16,7 @@ Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0]
 
 The **spectacles world basis** is centered on the user's head (X right, Y up, Z back), and uses a right-handed coordinate system.
 
-Reference pose:
- - Hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward
+Reference pose: hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward.
 
 The Spectacles has non-uniform joint bases.
 If the entries share a symbol, they use the same basis:
@@ -37,22 +36,70 @@ If the entries share a symbol, they use the same basis:
   | 1   |       | K     | X     | X      | X    | X     |
   | 0   | X     | K     | X     | X      | X    | X     |
 
-
 For reference, review the Spectacles [landmark names].
 
 #### X
-  - Hand: left, right
-    - Landmarks: wrist, pinky-0, pinky-1, pinky-2, ring-0, ring-1, ring-2, middle-0, middle-1, middle-2, index-0, index-1, index-2
-    - Right-handed coordinate system
-    - X axis points back to palm
-    - Y axis pinky to index
-    - Z axis wrist to middle
+- Hand: left, right
+  - Landmarks: wrist, pinky-0, pinky-1, pinky-2, ring-0, ring-1, ring-2, middle-0, middle-1, middle-2, index-0, index-1, index-2
+  - X right (index to pinky on the left hand, pinky to index on the right hand)
+  - Y up (wrist to fingertips)
+  - Z back (palm to back of hand).
 
 #### P
 
- - Hand: left
-   - Landmarks: pinky-3
-   - WIP
+- Hand: left, right
+  - Landmarks: pinky-3
+    - X
+    - Y
+    - Z
+
+#### R
+
+- Hand: left, right
+  - Landmarks: ring-3
+    - X
+    - Y
+    - Z
+
+#### M
+
+- Hand: left, right
+  - Landmarks: middle-3
+    - X
+    - Y
+    - Z
+
+#### A
+
+- Hand: left
+  - Landmarks: thumb-3
+    - X
+    - Y
+    - Z
+
+#### J
+
+- Hand: left
+  - Landmarks: thumb-0, thumb-1, thumb-2
+    - X
+    - Y
+    - Z
+
+#### B
+
+- Hand: right
+  - Landmarks: thumb-3
+    - X
+    - Y
+    - Z
+
+#### K
+
+- Hand: right
+  - Landmarks: thumb-0, thumb-1, thumb-2
+    - X
+    - Y
+    - Z
 
 ## Usage
 

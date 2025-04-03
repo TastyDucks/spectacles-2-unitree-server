@@ -3,11 +3,11 @@
         "asyncio >=3.4.3",
         "casadi>=3.6.7",
         "ipython>=9.0.2",
-        "meshcat @ git+ssh://git@github.com/TastyDucks/meshcat-python",
+        "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
         "mujoco>=3.3.0",
         "numpy==1.26.4",
         "pyzmq>=26.3.0",
-        "unitree_sdk2py @ git+ssh://git@github.com/TastyDucks/unitree_sdk2_python.git",
+        "unitree_sdk2py @ git+https://github.com/TastyDucks/unitree_sdk2_python.git",
         "websockets>=15.0",
     ]
     description     = "Unitree Robot Client"
