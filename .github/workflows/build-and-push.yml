@@ -15,7 +15,7 @@ jobs:
       id-token: write
       contents: read
       packages: write
-    runs-on: namespace-profile-bigchungus
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         container:
@@ -25,9 +25,6 @@ jobs:
           - path: .
             name: server
             platforms: linux/amd64
-          - path: unitree-client
-            name: client
-            platforms: linux/arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
