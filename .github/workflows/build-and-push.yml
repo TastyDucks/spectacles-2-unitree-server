@@ -21,10 +21,13 @@ jobs:
         container:
           - path: .devcontainer
             name: dev
+            platforms: linux/amd64,linux/arm64
           - path: .
             name: server
+            platforms: linux/amd64
           - path: unitree-client
-          - name: client
+            name: client
+            platforms: linux/arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -60,7 +63,7 @@ jobs:
           file: ${{ matrix.container.path }}/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.container.platforms }}
           push: true
           pull: true
           cache-from: type=gha
