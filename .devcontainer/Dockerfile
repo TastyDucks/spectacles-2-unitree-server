@@ -17,14 +17,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN . /etc/lsb-release && \
     curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc > /etc/apt/keyrings/robotpkg.asc \
-    && echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" > /etc/apt/sources.list.d/robotpkg.list \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" > /etc/apt/sources.list.d/robotpkg.list \
     # pinocchio
     && curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
-        | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
+    | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
     && curl -fsSL http://neuro.debian.net/lists/bookworm.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list \
     # Git LFS
     && curl -fsSL https://packagecloud.io/github/git-lfs/gpgkey \
-        | gpg --dearmor -o /etc/apt/keyrings/github_git-lfs-archive-keyring.gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/github_git-lfs-archive-keyring.gpg \
     && curl -fsSL "https://packagecloud.io/install/repositories/github/git-lfs/config_file.list?os=${DISTRIB_ID}&dist=${DISTRIB_CODENAME}" > /etc/apt/sources.list.d/github_git-lfs.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

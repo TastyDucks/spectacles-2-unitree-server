@@ -2,19 +2,20 @@
     dependencies = [
         "asyncio >=3.4.3",
         "casadi>=3.6.7",
-        "ipython>=9.0.2",
+        "ipython>=8.34.0",
         "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
         "mujoco>=3.3.0",
         "numpy==1.26.4",
         "pyzmq>=26.3.0",
+        "scipy>=1.15.2",
         "unitree_sdk2py @ git+https://github.com/TastyDucks/unitree_sdk2_python.git",
         "websockets>=15.0",
     ]
-    description     = "Unitree Robot Client"
-    name            = "unitree-client"
-    readme          = "README.md"
-    requires-python = ">=3.12"
-    version         = "0.1.0"
+    description = "Unitree Robot Client"
+    name = "unitree-client"
+    readme = "README.md"
+    requires-python = ">=3.10"
+    version = "0.1.0"
 
 [tool.ruff]
     line-length = 160

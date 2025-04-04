@@ -15,7 +15,7 @@ jobs:
       id-token: write
       contents: read
       packages: write
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-bigchungus
     strategy:
       matrix:
         container:
@@ -23,6 +23,8 @@ jobs:
             name: dev
           - path: .
             name: server
+          - path: unitree-client
+          - name: client
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
