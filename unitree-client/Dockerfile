@@ -1,7 +1,4 @@
-FROM nvcr.io/nvidia/l4t-cuda:12.6.11-runtime
-
-LABEL org.opencontainers.image.description="Spectacles-2-Unitree Robot Client"
-LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
+FROM nvcr.io/nvidia/l4t-cuda:12.6.11-runtime AS base
 
 ARG UV_VERSION=0.6.2
 
@@ -34,6 +31,8 @@ RUN apt-get update \
     python3.10 \
     python3.10-dev \
     && apt-get clean
+
+FROM base AS builder
 
 ENV PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
     PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
@@ -102,5 +101,13 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     && cd / \
     && rm -rf /tmp/pinocchio
 
-WORKDIR /app/src
+FROM base AS runtime
+
+LABEL org.opencontainers.image.description="Spectacles-2-Unitree Robot Client"
+LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
+
+COPY --from=builder /usr/local/ /usr/local
+COPY --from=builder /app /app
+
+WORKDIR /app
 CMD ["python3.10", "main.py"]
