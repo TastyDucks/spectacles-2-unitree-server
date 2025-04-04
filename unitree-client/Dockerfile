@@ -42,6 +42,11 @@ ENV PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
+# Numpy needed for eigenpy
+RUN python3.10 -m venv /app/.venv && \
+    /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /app/.venv/bin/pip install --no-cache-dir numpy
+
 # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
 RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
     && cd /tmp/cyclonedds \
@@ -55,20 +60,7 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /
 
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
 
-WORKDIR /app
-
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-COPY . .
-
-ENV UV_COMPILE_BYTECODE=1
-
-RUN uv sync --no-dev
-
-WORKDIR /
-
-# Build Eigenpy
-
+# Eigenpy
 RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
     && cd /tmp/eigenpy \
     && mkdir build \
@@ -84,8 +76,7 @@ RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
     && cd / \
     && rm -rf /tmp/eigenpy
 
-# Finally build Pinocchio
-
+# Pinocchio
 RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/pinocchio \
     && cd /tmp/pinocchio \
     && mkdir build \
@@ -109,5 +100,13 @@ LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-
 COPY --from=builder /usr/local/ /usr/local
 COPY --from=builder /app /app
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
-CMD ["python3.10", "main.py"]
+
+COPY . .
+
+RUN uv sync --no-dev
+
+WORKDIR /app/src
+CMD ["/app/.venv/bin/python", "main.py"]
