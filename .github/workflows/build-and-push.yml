@@ -24,6 +24,7 @@ jobs:
             platforms: linux/amd64
           - path: unitree-client
             name: client
+            target: runtime
             platforms: linux/arm64
           - path: .
             name: server
@@ -64,6 +65,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.container.platforms }}
+          target: ${{  matrix.container.target }}
           push: true
           pull: true
           cache-from: type=gha
