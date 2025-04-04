@@ -21,7 +21,10 @@ jobs:
         container:
           - path: .devcontainer
             name: dev
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
+          - path: unitree-client
+            name: client
+            platforms: linux/arm64
           - path: .
             name: server
             platforms: linux/amd64
