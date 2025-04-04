@@ -54,7 +54,7 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /
     && cmake ..\
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DENABLE_PACKAGING=ON \
-    && cmake --build . --target install \
+    && cmake --build . -j$(nproc) --target install \
     && cd / \
     && rm -rf /tmp/cyclonedds
 
