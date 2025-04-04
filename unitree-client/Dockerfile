@@ -30,6 +30,7 @@ RUN apt-get update \
     libspdlog-dev \
     python3.10 \
     python3.10-dev \
+    python3.10-venv \
     && apt-get clean
 
 FROM base AS builder
