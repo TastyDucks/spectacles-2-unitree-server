@@ -23,15 +23,19 @@ RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
     | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
     && curl -fsSL http://neuro.debian.net/lists/bookworm.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list
 
-RUN apt-get update \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
+RUN add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
     && apt-get install -y \
-    libboost-all-dev \
-    libeigen3-dev \
-    libspdlog-dev \
     python3.10 \
     python3.10-dev \
     python3.10-venv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+    && apt-get install -y \
+    libeigen3-dev \
+    libspdlog-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -62,6 +66,19 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /
     && rm -rf /tmp/cyclonedds
 
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
+
+# Libboost for Python 3.10 -- needed by eigenpy
+RUN mkdir -p /tmp/boost && \
+    cd /tmp/boost && \
+    curl -LO https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz && \
+    tar -xf boost_1_87_0.tar.gz && \
+    cd boost_1_87_0 && \
+    ./bootstrap.sh --with-libraries=python \
+    --with-python=/app/.venv/bin/python \
+    --with-python-version=3.10 \
+    --with-python-root=/app/.venv && \
+    ./b2 install -j$(nproc) && \
+    cd / && rm -rf /tmp/boost
 
 # Eigenpy
 RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
