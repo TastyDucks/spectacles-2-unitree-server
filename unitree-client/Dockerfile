@@ -46,7 +46,7 @@ ENV PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
 # Numpy needed for eigenpy
 RUN python3.10 -m venv /app/.venv && \
     /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /app/.venv/bin/pip install --no-cache-dir numpy
+    /app/.venv/bin/pip install --no-cache-dir numpy scipy
 
 # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
 RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
