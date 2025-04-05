@@ -72,16 +72,3 @@ jobs:
             type=gha,scope=${{ matrix.container.name }}
             type=registry,ref=${{ env.URL }}.${{ matrix.container.name }}:cache
           cache-to: type=gha,mode=max,scope=${{ matrix.container.name }}
-      - name: Tag and push cache
-        if: ${{ matrix.container.target == 'runtime' }}
-        run: |
-          docker buildx build \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
-            --target=builder \
-            --platform ${{ matrix.container.platforms }} \
-            --cache-from type=gha,scope=${{ matrix.container.name }} \
-            --cache-to type=gha,mode=max,scope=${{ matrix.container.name }} \
-            --tag ${{ env.URL }}.${{ matrix.container.name }}:cache \
-            --push \
-            --file ${{ matrix.container.path }}/Dockerfile \
-            ${{ matrix.container.path }}
