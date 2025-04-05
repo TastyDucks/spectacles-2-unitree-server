@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/l4t-cuda:11.4.18-runtime AS base
+FROM nvcr.io/nvidia/l4t-cuda:11.4.19-runtime AS base
 
 ARG UV_VERSION=0.6.2
 
