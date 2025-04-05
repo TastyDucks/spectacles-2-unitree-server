@@ -2,7 +2,18 @@ FROM nvcr.io/nvidia/l4t-cuda:11.4.19-runtime AS base
 
 ARG UV_VERSION=0.6.2
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
+    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
+    LD_LIBRARY_PATH="/opt/openrobots/lib:/usr/local/lib" \
+    PYTHONPATH="/opt/openrobots/lib/python3.10/site-packages:/usr/local/lib:/usr/lib/python3.10:/usr/local/include" \
+    CMAKE_PREFIX_PATH="/usr/share:/usr/local:/opt/openrobots" \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    BOOST_ROOT=/usr/local \
+    BOOST_INCLUDEDIR=/usr/local/include \
+    BOOST_LIBRARYDIR=/usr/local/lib \
+    CYCLONEDDS_HOME=/usr/local
 
 RUN apt-get update \
     && apt-get install -y \
@@ -29,25 +40,12 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa \
     python3.10 \
     python3.10-dev \
     python3.10-venv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update \
-    && apt-get install -y \
     libeigen3-dev \
     libspdlog-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS builder
-
-ENV PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
-    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
-    LD_LIBRARY_PATH="/opt/openrobots/lib:/usr/local/lib" \
-    PYTHONPATH="/opt/openrobots/lib/python3.10/site-packages:/usr/local/lib:/usr/lib/python3.10:/usr/local/include" \
-    CMAKE_PREFIX_PATH="/usr/share:/usr/local:/opt/openrobots" \
-    UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
 
 # Numpy needed for eigenpy
 RUN python3.10 -m venv /app/.venv && \
@@ -73,12 +71,16 @@ RUN mkdir -p /tmp/boost && \
     curl -LO https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz && \
     tar -xf boost_1_87_0.tar.gz && \
     cd boost_1_87_0 && \
-    ./bootstrap.sh --with-libraries=python \
+    ./bootstrap.sh --with-libraries=python,filesystem,serialization,system \
     --with-python=/app/.venv/bin/python \
     --with-python-version=3.10 \
     --with-python-root=/app/.venv && \
-    ./b2 install -j$(nproc) && \
-    cd / && rm -rf /tmp/boost
+    ./b2 install \
+    --prefix=/usr/local \
+    include=/usr/include/python3.10 \
+    cxxflags="-I/usr/include/python3.10 -fPIC" \
+    linkflags="-L/usr/lib/aarch64-linux-gnu -lpython3.10" \
+    && cd / && rm -rf /tmp/boost
 
 # Eigenpy
 RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
@@ -107,8 +109,10 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DPYTHON_EXECUTABLE=/app/.venv/bin/python \
     -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.10.so \
     -DPYTHON_NUMPY_INCLUDE_DIRS=/app/.venv/lib/python3.10/site-packages/numpy/core/include \
-    && make -j$(nproc) \
-    && make install \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_WITH_CASADI_SUPPORT=ON \
+    && VERBOSE=1 make -j$(nproc) \
+    && VERBOSE=1 make install \
     && cd / \
     && rm -rf /tmp/pinocchio
 
