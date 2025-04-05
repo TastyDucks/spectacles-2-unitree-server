@@ -16,7 +16,8 @@ RUN apt-get update \
     liburdfdom-headers-dev \
     lsb-release \
     software-properties-common \
-    && apt-get clean
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
     | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
@@ -31,7 +32,8 @@ RUN apt-get update \
     python3.10 \
     python3.10-dev \
     python3.10-venv \
-    && apt-get clean
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM base AS builder
 
