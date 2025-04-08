@@ -19,6 +19,7 @@ RUN apt-get update \
     && apt-get install -y \
     curl \
     git \
+    build-essential \
     libgl1 \
     libglib2.0-0 \
     lsb-release \
@@ -41,7 +42,6 @@ FROM base AS builder
 
 RUN apt-get update \
     && apt-get install -y \
-    build-essential \
     cmake \
     liburdfdom-dev \
     liburdfdom-headers-dev \
