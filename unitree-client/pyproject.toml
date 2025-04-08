@@ -1,8 +1,8 @@
 [project]
     dependencies = [
         "asyncio >=3.4.3",
-        "casadi==3.6.7",
-        "cyclonedds==0.10.2",
+        # "casadi==3.6.7", # Built in the container.
+        # "cyclonedds==0.10.2", # Built in the container.
         "ipython>=8.34.0",
         "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
         "mujoco>=3.3.0",

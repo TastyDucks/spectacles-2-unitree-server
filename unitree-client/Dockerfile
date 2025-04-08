@@ -17,16 +17,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update \
     && apt-get install -y \
-    build-essential \
-    cmake \
-    curl \
-    git \
     libgl1 \
     libglib2.0-0 \
-    liburdfdom-dev \
-    liburdfdom-headers-dev \
     lsb-release \
-    software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,6 +31,20 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update \
     && apt-get install -y \
     python3.10 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS builder
+
+RUN apt-get update \
+    && apt-get install -y \
+    software-properties-common \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    liburdfdom-dev \
+    liburdfdom-headers-dev \
     python3.10-dev \
     python3.10-venv \
     libeigen3-dev \
@@ -45,12 +52,13 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-FROM base AS builder
-
 # Numpy needed for eigenpy
 RUN python3.10 -m venv /app/.venv && \
     /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /app/.venv/bin/pip install --no-cache-dir numpy scipy casadi==3.6.7
+    /app/.venv/bin/pip install --no-cache-dir \
+    numpy \
+    scipy \
+    casadi==3.6.7
 # Casadi 3.7.0 introduces breaking changes to CMAKE.
 
 # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
@@ -116,7 +124,7 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DBUILD_WITH_CASADI_SUPPORT=ON \
     -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
     -DENABLE_TEMPLATE_INSTANTIATION=ON \
-    -DCMAKE_CXX_FLAGS="-fvisibility=default -fno-inline" \
+    -DCMAKE_CXX_FLAGS="Wno-deprecated-declarations" \
     && VERBOSE=1 make -j$(nproc) \
     && VERBOSE=1 make install \
     && cd / \
