@@ -17,9 +17,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update \
     && apt-get install -y \
+    curl \
+    git \
     libgl1 \
     libglib2.0-0 \
     lsb-release \
+    software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,13 +41,11 @@ FROM base AS builder
 
 RUN apt-get update \
     && apt-get install -y \
-    software-properties-common \
     build-essential \
     cmake \
-    curl \
-    git \
     liburdfdom-dev \
     liburdfdom-headers-dev \
+    libpython3.10-dev \
     python3.10-dev \
     python3.10-venv \
     libeigen3-dev \
@@ -124,7 +125,7 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DBUILD_WITH_CASADI_SUPPORT=ON \
     -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
     -DENABLE_TEMPLATE_INSTANTIATION=ON \
-    -DCMAKE_CXX_FLAGS="Wno-deprecated-declarations" \
+    -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations" \
     && VERBOSE=1 make -j$(nproc) \
     && VERBOSE=1 make install \
     && cd / \
