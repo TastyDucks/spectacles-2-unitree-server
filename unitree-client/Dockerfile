@@ -115,6 +115,8 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DBUILD_TESTING=OFF \
     -DBUILD_WITH_CASADI_SUPPORT=ON \
     -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
+    -DENABLE_TEMPLATE_INSTANTIATION=ON \
+    -DCMAKE_CXX_FLAGS="-fvisibility=default" \
     && VERBOSE=1 make -j$(nproc) \
     && VERBOSE=1 make install \
     && cd / \
@@ -124,6 +126,8 @@ FROM base AS runtime
 
 LABEL org.opencontainers.image.description="Spectacles-2-Unitree Robot Client"
 LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
+
+ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
 
 COPY --from=builder /usr/local/ /usr/local
 COPY --from=builder /app /app
