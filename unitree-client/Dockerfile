@@ -23,6 +23,9 @@ RUN apt-get update \
     libgl1 \
     libglib2.0-0 \
     lsb-release \
+    libconsole-bridge1.0 \
+    liburdfdom-model \
+    liburdfdom-world \
     software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -45,6 +48,9 @@ RUN apt-get update \
     cmake \
     liburdfdom-dev \
     liburdfdom-headers-dev \
+    liburdfdom-model \
+    liburdfdom-world \
+    libconsole-bridge-dev \
     libpython3.10-dev \
     python3.10-dev \
     python3.10-venv \
@@ -74,6 +80,18 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /
     && cd / \
     && rm -rf /tmp/cyclonedds
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
+
+# Build CycloneDDS Python Bindings
+# Needs the C library installed first and build tools
+RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds-python.git /tmp/cyclonedds-python \
+    && cd /tmp/cyclonedds-python \
+    # Set CYCLONEDDS_HOME to tell the setup where to find the C library installation
+    && CYCLONEDDS_HOME=/usr/local \
+    PATH="/app/.venv/bin:${PATH}" \
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
+    /app/.venv/bin/python -m pip install --no-cache-dir . \
+    && cd / \
+    && rm -rf /tmp/cyclonedds-python
 
 # Libboost for Python 3.10 -- needed by eigenpy
 RUN mkdir -p /tmp/boost && \
@@ -123,6 +141,7 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DPYTHON_NUMPY_INCLUDE_DIRS=/app/.venv/lib/python3.10/site-packages/numpy/core/include \
     -DBUILD_TESTING=OFF \
     -DBUILD_WITH_CASADI_SUPPORT=ON \
+    -DBUILD_WITH_URDF_SUPPORT=ON \
     -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
     -DENABLE_TEMPLATE_INSTANTIATION=ON \
     -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations" \
