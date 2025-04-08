@@ -116,7 +116,7 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DBUILD_WITH_CASADI_SUPPORT=ON \
     -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
     -DENABLE_TEMPLATE_INSTANTIATION=ON \
-    -DCMAKE_CXX_FLAGS="-fvisibility=default" \
+    -DCMAKE_CXX_FLAGS="-fvisibility=default -fno-inline" \
     && VERBOSE=1 make -j$(nproc) \
     && VERBOSE=1 make install \
     && cd / \
