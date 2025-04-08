@@ -52,16 +52,17 @@ RUN python3.10 -m venv /app/.venv && \
     /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
     /app/.venv/bin/pip install --no-cache-dir numpy scipy
 
-# Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
-RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
-    && cd /tmp/cyclonedds \
-    && mkdir build && cd build \
-    && cmake ..\
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DENABLE_PACKAGING=ON \
-    && cmake --build . -j$(nproc) --target install \
-    && cd / \
-    && rm -rf /tmp/cyclonedds
+# # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
+# RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
+#     && cd /tmp/cyclonedds \
+#     && mkdir build && cd build \
+#     && cmake ..\
+#     -DCMAKE_INSTALL_PREFIX=/usr/local \
+#     -DENABLE_PACKAGING=ON \
+#     -DENABLE_TYPELIB=ON \
+#     && cmake --build . -j$(nproc) --target install \
+#     && cd / \
+#     && rm -rf /tmp/cyclonedds
 
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
 

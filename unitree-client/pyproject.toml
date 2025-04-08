@@ -2,7 +2,7 @@
     dependencies = [
         "asyncio >=3.4.3",
         "casadi>=3.6.7",
-        "cyclonedds>=0.10.5",
+        "cyclonedds==0.10.2",
         "ipython>=8.34.0",
         "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
         "mujoco>=3.3.0",
@@ -11,7 +11,7 @@
         "scipy>=1.15.2",
         "unitree_sdk2py @ git+https://github.com/TastyDucks/unitree_sdk2_python.git",
         "websockets>=15.0",
-]
+    ]
     description = "Unitree Robot Client"
     name = "unitree-client"
     readme = "README.md"
