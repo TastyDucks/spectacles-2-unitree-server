@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
     PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
     LD_LIBRARY_PATH="/opt/openrobots/lib:/usr/local/lib" \
-    PYTHONPATH="/opt/openrobots/lib/python3.10/site-packages:/usr/local/lib:/usr/lib/python3.10:/usr/local/include" \
+    PYTHONPATH="/opt/openrobots/lib/python3.10/site-packages:/usr/local/lib:/usr/lib/python3.10:/usr/local/include:/usr/local/lib/python3.10/site-packages" \
     CMAKE_PREFIX_PATH="/usr/share:/usr/local:/opt/openrobots" \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -50,20 +50,20 @@ FROM base AS builder
 # Numpy needed for eigenpy
 RUN python3.10 -m venv /app/.venv && \
     /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /app/.venv/bin/pip install --no-cache-dir numpy scipy
+    /app/.venv/bin/pip install --no-cache-dir numpy scipy casadi==3.6.7
+# Casadi 3.7.0 introduces breaking changes to CMAKE.
 
-# # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
-# RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
-#     && cd /tmp/cyclonedds \
-#     && mkdir build && cd build \
-#     && cmake ..\
-#     -DCMAKE_INSTALL_PREFIX=/usr/local \
-#     -DENABLE_PACKAGING=ON \
-#     -DENABLE_TYPELIB=ON \
-#     && cmake --build . -j$(nproc) --target install \
-#     && cd / \
-#     && rm -rf /tmp/cyclonedds
-
+# Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
+RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
+    && cd /tmp/cyclonedds \
+    && mkdir build && cd build \
+    && cmake ..\
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DENABLE_PACKAGING=ON \
+    -DENABLE_TYPELIB=ON \
+    && cmake --build . -j$(nproc) --target install \
+    && cd / \
+    && rm -rf /tmp/cyclonedds
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
 
 # Libboost for Python 3.10 -- needed by eigenpy
@@ -72,7 +72,7 @@ RUN mkdir -p /tmp/boost && \
     curl -LO https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz && \
     tar -xf boost_1_87_0.tar.gz && \
     cd boost_1_87_0 && \
-    ./bootstrap.sh --with-libraries=python,filesystem,serialization,system \
+    ./bootstrap.sh --with-libraries=all \
     --with-python=/app/.venv/bin/python \
     --with-python-version=3.10 \
     --with-python-root=/app/.venv && \
@@ -99,6 +99,8 @@ RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
     && cd / \
     && rm -rf /tmp/eigenpy
 
+ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
+
 # Pinocchio
 RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/pinocchio \
     && cd /tmp/pinocchio \
@@ -112,6 +114,7 @@ RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/p
     -DPYTHON_NUMPY_INCLUDE_DIRS=/app/.venv/lib/python3.10/site-packages/numpy/core/include \
     -DBUILD_TESTING=OFF \
     -DBUILD_WITH_CASADI_SUPPORT=ON \
+    -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
     && VERBOSE=1 make -j$(nproc) \
     && VERBOSE=1 make install \
     && cd / \

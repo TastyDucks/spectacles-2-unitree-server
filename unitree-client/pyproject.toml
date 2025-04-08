@@ -1,7 +1,7 @@
 [project]
     dependencies = [
         "asyncio >=3.4.3",
-        "casadi>=3.6.7",
+        "casadi==3.6.7",
         "cyclonedds==0.10.2",
         "ipython>=8.34.0",
         "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
