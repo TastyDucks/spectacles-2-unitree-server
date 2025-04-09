@@ -20,13 +20,29 @@ RUN apt-get update \
     curl \
     git \
     build-essential \
+    cmake \
     libgl1 \
     libglib2.0-0 \
     lsb-release \
-    libconsole-bridge1.0 \
+    libconsole-bridge0.4 \
+    software-properties-common \
+    liburdfdom-dev \
+    liburdfdom-headers-dev \
     liburdfdom-model \
     liburdfdom-world \
-    software-properties-common \
+    libconsole-bridge-dev \
+    libeigen3-dev \
+    libspdlog-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
+    python3.10 \
+    libpython3.10-dev \
+    python3.10-dev \
+    python3.10-venv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -34,30 +50,7 @@ RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
     | gpg --dearmor -o /etc/apt/trusted.gpg.d/neurodebian.gpg \
     && curl -fsSL http://neuro.debian.net/lists/bookworm.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list
 
-RUN add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update \
-    && apt-get install -y \
-    python3.10 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 FROM base AS builder
-
-RUN apt-get update \
-    && apt-get install -y \
-    cmake \
-    liburdfdom-dev \
-    liburdfdom-headers-dev \
-    liburdfdom-model \
-    liburdfdom-world \
-    libconsole-bridge-dev \
-    libpython3.10-dev \
-    python3.10-dev \
-    python3.10-venv \
-    libeigen3-dev \
-    libspdlog-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 # Numpy needed for eigenpy
 RUN python3.10 -m venv /app/.venv && \
