@@ -1,8 +1,8 @@
 [project]
     dependencies = [
         "asyncio >=3.4.3",
-        "casadi==3.6.7",                                                                       # Built in the container.
-        "cyclonedds @ git+https://github.com/eclipse-cyclonedds/cyclonedds-python.git@0.10.2", # Built in the container but need Python bindings.
+        # "casadi==3.6.7",                                                                       # Built in the container.
+        # "cyclonedds @ git+https://github.com/eclipse-cyclonedds/cyclonedds-python.git@0.10.2", # Built in the container but need Python bindings.
         "ipython>=8.34.0",
         "meshcat @ git+https://github.com/TastyDucks/meshcat-python.git",
         "mujoco>=3.3.0",

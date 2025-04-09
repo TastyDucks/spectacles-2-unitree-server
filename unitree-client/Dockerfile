@@ -2,37 +2,15 @@ FROM nvcr.io/nvidia/l4t-cuda:11.4.19-runtime AS base
 
 ARG UV_VERSION=0.6.2
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PATH="/opt/openrobots/bin:/usr/local/bin:/app/.venv/bin:${PATH}" \
-    PKG_CONFIG_PATH="/opt/openrobots/lib/pkgconfig:/usr/local/lib/pkgconfig" \
-    LD_LIBRARY_PATH="/opt/openrobots/lib:/usr/local/lib" \
-    PYTHONPATH="/opt/openrobots/lib/python3.10/site-packages:/usr/local/lib:/usr/lib/python3.10:/usr/local/include:/usr/local/lib/python3.10/site-packages" \
-    CMAKE_PREFIX_PATH="/usr/share:/usr/local:/opt/openrobots" \
-    UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    BOOST_ROOT=/usr/local \
-    BOOST_INCLUDEDIR=/usr/local/include \
-    BOOST_LIBRARYDIR=/usr/local/lib \
-    CYCLONEDDS_HOME=/usr/local
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y \
+    bzip2 \
     curl \
-    git \
-    build-essential \
-    cmake \
+    ca-certificates \
     libgl1 \
     libglib2.0-0 \
-    lsb-release \
-    libconsole-bridge0.4 \
-    software-properties-common \
-    liburdfdom-dev \
-    liburdfdom-headers-dev \
-    liburdfdom-model \
-    liburdfdom-world \
-    libconsole-bridge-dev \
-    libeigen3-dev \
-    libspdlog-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,15 +29,6 @@ RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
     && curl -fsSL http://neuro.debian.net/lists/bookworm.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list
 
 FROM base AS builder
-
-# Numpy needed for eigenpy
-RUN python3.10 -m venv /app/.venv && \
-    /app/.venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /app/.venv/bin/pip install --no-cache-dir \
-    numpy \
-    scipy \
-    casadi==3.6.7
-# Casadi 3.7.0 introduces breaking changes to CMAKE.
 
 # Build CycloneDDS: the unitree-sdk2py depends on CycloneDDS 0.10.2
 RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
@@ -86,62 +55,19 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds-p
     && cd / \
     && rm -rf /tmp/cyclonedds-python
 
-# Libboost for Python 3.10 -- needed by eigenpy
-RUN mkdir -p /tmp/boost && \
-    cd /tmp/boost && \
-    curl -LO https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz && \
-    tar -xf boost_1_87_0.tar.gz && \
-    cd boost_1_87_0 && \
-    ./bootstrap.sh --with-libraries=all \
-    --with-python=/app/.venv/bin/python \
-    --with-python-version=3.10 \
-    --with-python-root=/app/.venv && \
-    ./b2 install \
-    --prefix=/usr/local \
-    include=/usr/include/python3.10 \
-    cxxflags="-I/usr/include/python3.10 -fPIC" \
-    linkflags="-L/usr/lib/aarch64-linux-gnu -lpython3.10" \
-    && cd / && rm -rf /tmp/boost
+RUN curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -o /tmp/miniforge.sh \
+    && chmod +x /tmp/miniforge.sh \
+    && /tmp/miniforge.sh -b -p /opt/conda \
+    && rm /tmp/miniforge.sh
 
-# Eigenpy
-RUN git clone https://github.com/stack-of-tasks/eigenpy /tmp/eigenpy \
-    && cd /tmp/eigenpy \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DPYTHON_EXECUTABLE=/app/.venv/bin/python \
-    -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.10.so \
-    -DPYTHON_NUMPY_INCLUDE_DIRS=/app/.venv/lib/python3.10/site-packages/numpy/core/include \
-    && make -j$(nproc) \
-    && make install \
-    && cd / \
-    && rm -rf /tmp/eigenpy
+RUN source /opt/conda/etc/profile.d/conda.sh \
+    && conda config --set auto_activate_base false \
+    && conda create -n unitree-client python=3.10 \
+    && conda clean -afy
 
-ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
-
-# Pinocchio
-RUN git clone --branch=v3.5.0 https://github.com/stack-of-tasks/pinocchio /tmp/pinocchio \
-    && cd /tmp/pinocchio \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DPYTHON_EXECUTABLE=/app/.venv/bin/python \
-    -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.10.so \
-    -DPYTHON_NUMPY_INCLUDE_DIRS=/app/.venv/lib/python3.10/site-packages/numpy/core/include \
-    -DBUILD_TESTING=OFF \
-    -DBUILD_WITH_CASADI_SUPPORT=ON \
-    -DBUILD_WITH_URDF_SUPPORT=ON \
-    -Dcasadi_DIR=/app/.venv/lib64/python3.10/site-packages/casadi/cmake \
-    -DENABLE_TEMPLATE_INSTANTIATION=ON \
-    -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations" \
-    && VERBOSE=1 make -j$(nproc) \
-    && VERBOSE=1 make install \
-    && cd / \
-    && rm -rf /tmp/pinocchio
+RUN conda install pinocchio -c conda-forge \
+    && conda install casadi -c conda-forge \
+    && conda clean -afy
 
 FROM base AS runtime
 
@@ -151,7 +77,6 @@ LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-
 ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
 
 COPY --from=builder /usr/local/ /usr/local
-COPY --from=builder /app /app
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
