@@ -32,9 +32,13 @@ class G1_29_ArmIK:
         self.left_wrist = np.eye(4)
         self.right_wrist = np.eye(4)
 
-        logger.info("Building Pinocchio URDF...")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        self.robot = pin.RobotWrapper.BuildFromURDF("./ik/urdf/g1/g1_body29_hand14.urdf", "./ik/urdf/g1")
+        # Construct absolute paths relative to the script directory
+        urdf_file_path = os.path.join(script_dir, "urdf/g1/g1_body29_hand14.urdf")
+        mesh_dir = os.path.dirname(urdf_file_path)
+        logger.info(f"Building Pinocchio URDF model from {urdf_file_path}, meshes from {mesh_dir}")
+        self.robot = pin.RobotWrapper.BuildFromURDF(urdf_file_path, [mesh_dir])
 
         self.mixed_jointsToLockIDs = [
             "left_hip_pitch_joint",

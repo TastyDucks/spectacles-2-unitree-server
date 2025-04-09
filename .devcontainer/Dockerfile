@@ -96,5 +96,3 @@ RUN git clone https://github.com/eclipse-cyclonedds/cyclonedds /tmp/cyclonedds \
     && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
     && cmake --build . --target install \
     && cd / && rm -rf /tmp/cyclonedds
-
-ENV CMAKE_PREFIX_PATH="/usr/local/include/"

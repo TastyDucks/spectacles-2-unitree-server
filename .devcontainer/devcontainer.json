@@ -15,5 +15,5 @@
   "forwardPorts": [
     8080
   ],
-  "initializeCommand": "docker pull ghcr.io/tastyducks/spectacles-2-unitree-server.dev:latest" // This is needed because VS Code doesn't re-pull the image automatically... might be a regression in the remote dev extension, cf https://github.com/microsoft/vscode-remote-release/issues/7104
+  "initializeCommand": "docker pull --platform linux/amd64 ghcr.io/tastyducks/spectacles-2-unitree-server.dev:latest" // This is needed because VS Code doesn't re-pull the image automatically... might be a regression in the remote dev extension, cf https://github.com/microsoft/vscode-remote-release/issues/7104
 }
