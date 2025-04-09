@@ -2,7 +2,8 @@ FROM nvcr.io/nvidia/l4t-cuda:11.4.19-runtime AS base
 
 ARG UV_VERSION=0.6.2
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    CYCLONEDDS_HOME=/usr/local
 
 RUN apt-get update \
     && apt-get install -y \
@@ -51,13 +52,14 @@ RUN curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download
     && /tmp/miniforge.sh -b -p /opt/conda \
     && rm /tmp/miniforge.sh
 
-RUN source /opt/conda/etc/profile.d/conda.sh \
-    && conda config --set auto_activate_base false \
-    && conda create -n unitree-client python=3.10 \
-    && conda clean -afy
+SHELL ["/bin/bash", "-c"]
 
-RUN conda install pinocchio -c conda-forge \
-    && conda install casadi -c conda-forge \
+ENV PATH="/opt/conda/bin:${PATH}"
+
+COPY environment.yml environment.yml
+
+RUN source /opt/conda/etc/profile.d/conda.sh \
+    && conda env create -f environment.yml \
     && conda clean -afy
 
 FROM base AS runtime
@@ -68,14 +70,20 @@ LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-
 ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
 
 COPY --from=builder /usr/local/ /usr/local
+COPY --from=builder /opt/conda/ /opt/conda
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+SHELL ["/bin/bash", "-c"]
+
+RUN source /opt/conda/etc/profile.d/conda.sh \
+    && conda activate
+
+RUN pip install --no-cache-dir \
+    meshcat@git+https://github.com/TastyDucks/meshcat-python.git \
+    unitree_sdk2py@git+https://github.com/TastyDucks/unitree_sdk2_python.git
 
 WORKDIR /app
 
 COPY . .
 
-RUN uv sync --no-dev
-
 WORKDIR /app/src
-CMD ["/app/.venv/bin/python", "main.py"]
+CMD ["python", "main.py"]
