@@ -34,7 +34,7 @@ class G1_29_ArmIK:
 
         logger.info("Building Pinocchio URDF...")
 
-        self.robot = pin.RobotWrapper.BuildFromURDF("./ik/urdf/g1/g1_body29_hand14.urdf", "./ik/urdf/g1/")
+        self.robot = pin.RobotWrapper.BuildFromURDF("./ik/urdf/g1/g1_body29_hand14.urdf", "./ik/urdf/g1")
 
         self.mixed_jointsToLockIDs = [
             "left_hip_pitch_joint",

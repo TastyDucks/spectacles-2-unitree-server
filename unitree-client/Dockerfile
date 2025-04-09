@@ -68,6 +68,7 @@ LABEL org.opencontainers.image.description="Spectacles-2-Unitree Robot Client"
 LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
 
 ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
+ENV PATH="/opt/conda/bin:${PATH}"
 
 COPY --from=builder /usr/local/ /usr/local
 COPY --from=builder /opt/conda/ /opt/conda
@@ -75,15 +76,15 @@ COPY --from=builder /opt/conda/ /opt/conda
 SHELL ["/bin/bash", "-c"]
 
 RUN source /opt/conda/etc/profile.d/conda.sh \
-    && conda activate
-
-RUN pip install --no-cache-dir \
+    && conda activate unitree-client \
+    && pip install --no-cache-dir \
     meshcat@git+https://github.com/TastyDucks/meshcat-python.git \
-    unitree_sdk2py@git+https://github.com/TastyDucks/unitree_sdk2_python.git
+    unitree_sdk2py@git+https://github.com/TastyDucks/unitree_sdk2_python.git \
+    cyclonedds==0.10.2
 
 WORKDIR /app
 
 COPY . .
 
 WORKDIR /app/src
-CMD ["python", "main.py"]
+CMD ["bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate unitree-client && python main.py"]

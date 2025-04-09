@@ -5,10 +5,9 @@ dependencies:
   - python=3.10
   - pip
   - pinocchio
-  - casadi >=3.6,>3.7
-  - cyclonedds=0.10.2
+  - casadi >=3.7.0
   - ipython >=8.34.0
-  - mujoco >=3.3.0
+  - mujoco >=3.2.7
   - numpy =1.26.4
   - pyzmq >=26.3.0
   - scipy >=1.15.2
