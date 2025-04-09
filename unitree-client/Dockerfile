@@ -6,8 +6,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y \
+    software-properties-common \
     bzip2 \
     curl \
+    git \
+    cmake \
     ca-certificates \
     libgl1 \
     libglib2.0-0 \
@@ -42,18 +45,6 @@ RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds /
     && cd / \
     && rm -rf /tmp/cyclonedds
 RUN ln -s /usr/local/lib/pkgconfig/CycloneDDS.pc /usr/local/lib/pkgconfig/cyclonedds.pc
-
-# Build CycloneDDS Python Bindings
-# Needs the C library installed first and build tools
-RUN git clone --branch=0.10.2 https://github.com/eclipse-cyclonedds/cyclonedds-python.git /tmp/cyclonedds-python \
-    && cd /tmp/cyclonedds-python \
-    # Set CYCLONEDDS_HOME to tell the setup where to find the C library installation
-    && CYCLONEDDS_HOME=/usr/local \
-    PATH="/app/.venv/bin:${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
-    /app/.venv/bin/python -m pip install --no-cache-dir . \
-    && cd / \
-    && rm -rf /tmp/cyclonedds-python
 
 RUN curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -o /tmp/miniforge.sh \
     && chmod +x /tmp/miniforge.sh \
