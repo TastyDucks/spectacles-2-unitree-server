@@ -80,8 +80,6 @@ RUN apt-get update && apt-get install -y \
 
 SHELL ["/bin/bash", "-c"]
 
-RUN sysctl -w net.ipv4.conf.all.rp_filter=0
-
 RUN source /opt/conda/etc/profile.d/conda.sh \
     && conda activate unitree-client \
     && pip install --no-cache-dir \

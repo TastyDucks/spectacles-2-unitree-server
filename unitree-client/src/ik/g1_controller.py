@@ -24,9 +24,11 @@ class MotorState:
         self.q = None
         self.dq = None
 
+
 class G1_29_LowState:
     def __init__(self):
         self.motor_state = [MotorState() for _ in range(G1_29_Num_Motors)]
+
 
 class DataBuffer:
     def __init__(self):
@@ -40,6 +42,7 @@ class DataBuffer:
     def SetData(self, data):
         with self.lock:
             self.data = data
+
 
 class G1_29_ArmController:
     def __init__(self):
@@ -107,7 +110,7 @@ class G1_29_ArmController:
                 else:
                     self.msg.motor_cmd[id].kp = self.kp_high
                     self.msg.motor_cmd[id].kd = self.kd_high
-            self.msg.motor_cmd[id].q  = self.all_motor_q[id]
+            self.msg.motor_cmd[id].q = self.all_motor_q[id]
         print("Lock OK!\n")
 
         # initialize publish thread
@@ -124,7 +127,7 @@ class G1_29_ArmController:
             if msg is not None:
                 lowstate = G1_29_LowState()
                 for id in range(G1_29_Num_Motors):
-                    lowstate.motor_state[id].q  = msg.motor_state[id].q
+                    lowstate.motor_state[id].q = msg.motor_state[id].q
                     lowstate.motor_state[id].dq = msg.motor_state[id].dq
                 self.lowstate_buffer.SetData(lowstate)
             time.sleep(0.002)
@@ -141,10 +144,10 @@ class G1_29_ArmController:
             start_time = time.time()
 
             with self.ctrl_lock:
-                arm_q_target     = self.q_target
+                arm_q_target = self.q_target
                 arm_tauff_target = self.tauff_target
 
-            cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit = self.arm_velocity_limit)
+            cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(G1_29_JointArmIndex):
                 self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
@@ -201,7 +204,7 @@ class G1_29_ArmController:
                 break
             time.sleep(0.05)
 
-    def speed_gradual_max(self, t = 5.0):
+    def speed_gradual_max(self, t=5.0):
         """Parameter t is the total time required for arms velocity to gradually increase to its maximum value, in seconds. The default is 5.0."""
         self._gradual_start_time = time.time()
         self._gradual_time = t
@@ -239,6 +242,7 @@ class G1_29_ArmController:
         ]
         return motor_index.value in wrist_motors
 
+
 class G1_29_JointArmIndex(IntEnum):
     # Left arm
     kLeftShoulderPitch = 15
@@ -257,6 +261,7 @@ class G1_29_JointArmIndex(IntEnum):
     kRightWristRoll = 26
     kRightWristPitch = 27
     kRightWristYaw = 28
+
 
 class G1_29_JointIndex(IntEnum):
     # Left leg
