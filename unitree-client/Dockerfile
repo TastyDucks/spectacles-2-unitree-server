@@ -73,7 +73,14 @@ ENV PATH="/opt/conda/bin:${PATH}"
 COPY --from=builder /usr/local/ /usr/local
 COPY --from=builder /opt/conda/ /opt/conda
 
+RUN apt-get update && apt-get install -y \
+    iproute2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 SHELL ["/bin/bash", "-c"]
+
+RUN sysctl -w net.ipv4.conf.all.rp_filter=0
 
 RUN source /opt/conda/etc/profile.d/conda.sh \
     && conda activate unitree-client \
