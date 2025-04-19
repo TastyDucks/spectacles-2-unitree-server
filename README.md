@@ -193,22 +193,38 @@ For reference, review the Spectacles [landmark names].
 
 See the [Dex3 user manual](https://marketing.unitree.com/article/en/Dex3-1/User_Manual.html) for more details.
 
+**Joint Reference**
+
+These joints are **not used** during retargeting, this is just an "anatomical" reference. Instead, fingertips are used -- see the next table for those.
+
 | Hand  | Spectacles | Unitree Dex3 URDF | Unitree Dex3 Joint Name |
 | ----- | ---------- | ----------------- | ----------------------- |
 | Left  | thumb-0    | left_hand_zero    | thumb_0                 |
 | Left  | thumb-1    | left_hand_one     | thumb_1                 |
 | Left  | thumb-2    | left_hand_two     | thumb_2                 |
-| Left  | index-0    | left_hand_five    | middle_0                |
-| Left  | index-2    | left_hand_six     | middle_1                |
 | Left  | pinky-0    | left_hand_three   | index_0                 |
 | Left  | pinky-2    | left_hand_four    | index_1                 |
+| Left  | index-0    | left_hand_five    | middle_0                |
+| Left  | index-2    | left_hand_six     | middle_1                |
 | Right | thumb-0    | right_hand_zero   | thumb_0                 |
 | Right | thumb-1    | right_hand_one    | thumb_1                 |
 | Right | thumb-2    | right_hand_two    | thumb_2                 |
-| Right | pinky-0    | right_hand_five   | middle_0                |
-| Right | pinky-2    | right_hand_six    | middle_1                |
 | Right | index-0    | right_hand_three  | index_0                 |
 | Right | index-1    | right_hand_four   | index_1                 |
+| Right | pinky-0    | right_hand_five   | middle_0                |
+| Right | pinky-2    | right_hand_six    | middle_1                |
+
+**Fingertip Reference**
+
+| Hand  | Spectacles | Unitree Dex3 Name |
+| ----- | ---------- | ----------------- |
+| Left  | thumb-3    | thumb_tip         |
+| Left  | pinky-3    | index_tip         |
+| Left  | index-3    | middle_tip        |
+| Right | thumb-3    | thumb_tip         |
+| Right | index-3    | index_tip         |
+| Right | pinky-3    | middle_tip        |
+
 
 [landmark names]: https://developers.snap.com/lens-studio/api/lens-scripting/enums/Packages_SpectaclesInteractionKit_Providers_HandInputData_LandmarkNames.LandmarkName.html
 [SIK-0.10.0]: https://developers.snap.com/spectacles/spectacles-frameworks/spectacles-interaction-kit/release-notes#v0100
