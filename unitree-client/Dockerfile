@@ -92,4 +92,4 @@ WORKDIR /app
 COPY . .
 
 WORKDIR /app/src
-CMD ["bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate unitree-client && python main.py"]
+ENTRYPOINT ["/bin/bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate unitree-client && exec python main.py \"$@\"", "--"]

@@ -90,9 +90,9 @@ The Unitree client runs inverse kinematics calculations via [Pinocchio](https://
 
 ### Spectacles-space and Unitree-space Transformations
 
-Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0]
+Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0].
 
-The **spectacles world basis** is centered on the user's head's initial starting position and uses a right-handed coordinate system. X is right, Y is up, and Z back. Translation is measured in centimeters.
+The **Spectacles world basis** is centered on the user's head's initial starting position and uses a right-handed coordinate system. X is right, Y is up, and Z back. Translation is measured in centimeters.
 
 Reference pose: hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward.
 
@@ -189,7 +189,7 @@ For reference, review the Spectacles [landmark names].
 
 **The Unitree world basis** is centered on the robot's waist and uses a right-handed coordinate system. X is forward, Y is left, and Z is up. Translation is measured in meters.
 
-#### Dex3 Joint Mapping
+#### Spectacles to Dex3 Joint Mapping
 
 See the [Dex3 user manual](https://marketing.unitree.com/article/en/Dex3-1/User_Manual.html) for more details.
 
