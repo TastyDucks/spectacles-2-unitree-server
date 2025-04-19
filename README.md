@@ -92,7 +92,7 @@ The Unitree client runs inverse kinematics calculations via [Pinocchio](https://
 
 Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0]
 
-The **spectacles world basis** is centered on the user's head (X right, Y up, Z back) and uses a right-handed coordinate system.
+The **spectacles world basis** is centered on the user's head's initial starting position and uses a right-handed coordinate system. X is right, Y is up, and Z back. Translation is measured in centimeters.
 
 Reference pose: hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward.
 
@@ -187,6 +187,28 @@ For reference, review the Spectacles [landmark names].
     - Y ???
     - Z ???
 
+**The Unitree world basis** is centered on the robot's waist and uses a right-handed coordinate system. X is forward, Y is left, and Z is up. Translation is measured in meters.
+
+#### Dex3 Joint Mapping
+
+See the [Dex3 user manual](https://marketing.unitree.com/article/en/Dex3-1/User_Manual.html) for more details.
+
+| Hand  | Spectacles | Unitree Dex3 URDF | Unitree Dex3 Joint Name |
+| ----- | ---------- | ----------------- | ----------------------- |
+| Left  | thumb-0    | left_hand_zero    | thumb_0                 |
+| Left  | thumb-1    | left_hand_one     | thumb_1                 |
+| Left  | thumb-2    | left_hand_two     | thumb_2                 |
+| Left  | index-0    | left_hand_five    | middle_0                |
+| Left  | index-2    | left_hand_six     | middle_1                |
+| Left  | pinky-0    | left_hand_three   | index_0                 |
+| Left  | pinky-2    | left_hand_four    | index_1                 |
+| Right | thumb-0    | right_hand_zero   | thumb_0                 |
+| Right | thumb-1    | right_hand_one    | thumb_1                 |
+| Right | thumb-2    | right_hand_two    | thumb_2                 |
+| Right | pinky-0    | right_hand_five   | middle_0                |
+| Right | pinky-2    | right_hand_six    | middle_1                |
+| Right | index-0    | right_hand_three  | index_0                 |
+| Right | index-1    | right_hand_four   | index_1                 |
 
 [landmark names]: https://developers.snap.com/lens-studio/api/lens-scripting/enums/Packages_SpectaclesInteractionKit_Providers_HandInputData_LandmarkNames.LandmarkName.html
 [SIK-0.10.0]: https://developers.snap.com/spectacles/spectacles-frameworks/spectacles-interaction-kit/release-notes#v0100
