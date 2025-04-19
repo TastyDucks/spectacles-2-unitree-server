@@ -1,22 +1,106 @@
 # Spectacles-2-Unitree Coordination Server
 
-Connects Snapchat Spectacles Lens client to a Unitree G1 robot client for XR teleop.
+Connects Snapchat Spectacles Lens client to a Unitree G1 robot client for real-time XR teleop.
+
+## Usage
+
+### Deployment
+
+#### Coordination Server
+
+Container (AMD64): `docker pull ghcr.io/tastyducks/spectacles-2-unitree-server.server:latest`
+
+Deploy anywhere that hosts containers with a public IP address behind TLS.
+
+> **IMPORTANT**: The server should have the environment variable `DASHBOARD_PASSWORD` set to something with a decent amount of entropy. The default web UI password is `admin`.
+
+#### Unitree G1 Client
+
+Container (ARM64): `docker pull ghcr.io/tastyducks/spectacles-2-unitree-server.client:latest`
+
+There are two ways to run this:
+
+1. **No Unitree G1:** Run the container on your own machine and pass `--mock` as an argument:
+   ```bash
+   docker run -p 7000:7000 -it ghcr.io/tastyducks/spectacles-2-unitree-server.client:latest --mock --server wss://SERVER_HOST/ws
+   ```
+   You'll still be able to connect to the client and see the simulated hand tracking.
+
+2. **With a Unitree G1:** Install the [NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.17.5/install-guide.html#with-apt-ubuntu-debian) on the robot's NVIDIA Jetson Orin. Then, copy over [run-robot-client.sh](./unitree-client/run-robot-client.sh) and run it.
+
+<br/>
+
+> **IMPORTANT**: To view the simulated images in the Spectacles Lens, open the meshcat UI in your browser after the Unitree client starts: <http://UNITREE_CLIENT_ADDRESS:7000/static/>.
+
+### Development
+
+This repo includes a [devcontainer](https://containers.dev/) that has the Github CLI and `act` (a local Github actions runner) installed.
+
+- Github authentication: To use `act`, you need to authenticate with Github. Run:
+  ```bash
+  gh auth login -s repo,gist,read:org,write:packages,read:packages,delete:packages
+  ```
+  The package permissions are needed for `act` to write to the Github package registry.
+- Host mounting: the host's Docker socket (on MacOS and Linux) is mounted into the container workspace.
+
+#### Setup
+
+1. Install Docker or a similar container engine like Orbstack. On MacOS with Homebrew:
+   ```bash
+   brew install docker # or brew install --cask orbstack
+   ```
+2. If using VS Code, install the [Remote Development extension pack](vscode:extension/ms-vscode-remote.vscode-remote-extensionpack). If you're using Cursor, you can grab that extension by following [these instructions](https://www.cursor.com/en/how-to-install-extension).
+3. Reopen this project in a container: <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> -> "Dev Containers: Rebuild and Reopen in Container"
+4. Fetch dependencies for the server:
+   ```bash
+   uv sync
+   ```
+5. Fetch dependencies for the Unitree G1 client:
+   ```bash
+   cd unitree-client \
+       && source /opt/conda/etc/profile.d/conda.sh \
+       && conda activate unitree-client \
+       && conda env update -f environment.yml
+   ```
+
+Snapchat Spectacles will refuse WebSocket connections on `localhost`, so the server **must** be run at a public IP address with a valid (not self-signed) SSL certificate. I used [Railway](https://railway.com) to automate deployments from the `main` branch while developing.
+
+The Unitree client can be run locally for testing in "mock" mode. This will allow it to run without access to the robot, and will simply print out commands as they are received:
+```bash
+# Be sure to activate the conda venv first.
+cd unitree-client && source /opt/conda/etc/profile.d/conda.sh && conda activate unitree-client \
+    && python main.py --mock --server wss://SERVER_HOST/ws
+```
+
+#### Troubleshooting
+
+If you see a message like `*** buffer overflow detected ***: terminated`, or `waiting for dds`, it probably means the C++ bindings for the Unitree code are attempting to connect to the robot and failing.
+
+In development (working off the robot), be sure to pass `--mock` when running the Unitree client.
 
 ## Architecture
 
 The server uses `aiohttp` and `jinja2` to serve a simple web interface for pairing together Spectacles and Unitree G1 clients on a first-come-first-serve basis and monitoring messages. The dashboard is served at the root `/`, and the WebSocket server is served at `/ws`.
 
-The server also handles inverse kinematics calculations between Spectacles' wrist and hand keypoints and the robot's URDF model.
+Clients are *not authenticated* and messages are passed transparently between the two clients without modification.
 
-Clients are not authenticated currently, and messages are passed transparently between the two clients without modification.
+Both the robot client and the Spectacles lens maintain a persistent WebSocket connection to the server.
 
-### Spectacles-space and Unitree-space transformations
+The Unitree client runs inverse kinematics calculations via [Pinocchio](https://github.com/stack-of-tasks/pinocchio), transforming the Spectacles hand tracking data into the robot's URDF basis.
+
+### Spectacles-space and Unitree-space Transformations
 
 Recorded with [version 0.10.0 of the Spectacles Interaction Kit][SIK-0.10.0]
 
-The **spectacles world basis** is centered on the user's head (X right, Y up, Z back), and uses a right-handed coordinate system.
+The **spectacles world basis** is centered on the user's head (X right, Y up, Z back) and uses a right-handed coordinate system.
 
 Reference pose: hold left and right hands in front of the face, palms facing toward the face, and thumbs pointing outward.
+
+- Right vector: Green
+- Up vector: Red
+- Back vector: Blue
+
+![Reference pose perspective](hands.jpeg)
 
 The Spectacles has non-uniform joint bases.
 If the entries share a symbol, they use the same basis:
@@ -42,124 +126,67 @@ For reference, review the Spectacles [landmark names].
 - Hand: left, right
   - Landmarks: wrist, pinky-0, pinky-1, pinky-2, ring-0, ring-1, ring-2, middle-0, middle-1, middle-2, index-0, index-1, index-2
   - X right (index to pinky on the left hand, pinky to index on the right hand)
-  - Y up (wrist to fingertips)
+  - Y up (fingertips to wrist)
   - Z back (palm to back of hand).
+
+**The rest of these are described relative to "X".**
 
 #### P
 
 - Hand: left, right
   - Landmarks: pinky-3
-    - X
-    - Y
-    - Z
+    - X (X.X inverted) (pinky to index on the left hand, index to pinky on the right hand)
+    - Y (X.Z) (palm to back of hand)
+    - Z (X.Y) (fingertips to wrist)
 
 #### R
 
 - Hand: left, right
   - Landmarks: ring-3
-    - X
-    - Y
-    - Z
+    - X (X.X) (index to pinky on the left hand, pinky to index on the right hand)
+    - Y (X.Z) (palm to back of hand)
+    - Z (X.Y inverted) (wrist to fingertips)
 
 #### M
 
 - Hand: left, right
   - Landmarks: middle-3
-    - X
-    - Y
-    - Z
+    - X (X.X) (index to pinky on the left hand, pinky to index on the right hand)
+    - Y (X.Z inverted) (back of hand to palm)
+    - Z (X.Y) (fingertips to wrist)
 
 #### A
 
 - Hand: left
   - Landmarks: thumb-3
-    - X
-    - Y
-    - Z
+    - X ???
+    - Y ???
+    - Z ???
 
 #### J
 
 - Hand: left
   - Landmarks: thumb-0, thumb-1, thumb-2
-    - X
-    - Y
-    - Z
+    - X ???
+    - Y ???
+    - Z ???
 
 #### B
 
 - Hand: right
   - Landmarks: thumb-3
-    - X
-    - Y
-    - Z
+    - X ???
+    - Y ???
+    - Z ???
 
 #### K
 
 - Hand: right
   - Landmarks: thumb-0, thumb-1, thumb-2
-    - X
-    - Y
-    - Z
+    - X ???
+    - Y ???
+    - Z ???
 
-## Usage
-
-### Development
-
-1. Install Docker or a similar container engine like Orbstack. On MacOS with Homebrew:
-   ```sh
-   brew install docker # or brew install --cask orbstack
-   ```
-2. If using VS Code, install the [Remote Development extension pack](vscode:extension/ms-vscode-remote.vscode-remote-extensionpack). If you're using Cursor, you can grab that extension by following [these instructions](https://www.cursor.com/en/how-to-install-extension).
-3. Reopen this project in a container: <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> -> "Dev Containers: Rebuild and Reopen in Container"
-4. Fetch dependencies for the server:
-   ```sh
-   uv sync
-   ```
-5. Fetch dependencies for the Unitree G1 client:
-   ```sh
-   cd unitree-client && uv sync
-   ```
-
-Snapchat Spectacles will refuse localhost websocket connections, so the server **must** be run at a public IP address with a valid (not self-signed) SSL certificate. I used [Railway](https://railway.com) to automate deployments from the `main` branch.
-
-The unitree client can be run locally for testing in "mock" mode. This will allow it to run without access to the robot, and will simply print out commands as they are received:
-```sh
-cd unitree-client && uv run . -- --mock --server wss://SERVER_HOST/ws
-```
-
-
-This repo includes a devcontainer that has the Github CLI and `act`, a local Github actions runner.
-
-- Github authentication: To use `act`, you need to authenticate with Github. Run:
-  ```bash
-  gh auth login -s repo,gist,read:org,write:packages,read:packages,delete:packages
-  ```
-  The package permissions are needed for `act` to write to the Github package registry.
-  
-  If you want to run just a single action, you can use the `--job` flag:
-   ```bash
-   act --job build-and-push
-   ```
-- Host mounting: the host's Docker socket (assuming MacOS and Linux) is mounted into the container workspace.
-
-#### Troubleshooting
-
-If you see a message like `*** buffer overflow detected ***: terminated`, it probably means the C++ bindings for the Unitree code are attempting to connect to the robot and failing.
-
-In development (working off the robot), be sure to pass `--mock` when running the Unitree client.
-
-### Deployment
-
-- Build the coordination server targeting `linux/amd64` (necessary for `robotpkg-py318-pinocchio`):
-  ```sh
-  docker buildx build --platform linux/amd64 -t coordination-server .
-  ```
-  You can do this inside the devcontainer as it mounts the Docker socket from the host via `/var/run/docker.sock`.
-   > **NOTE**: If you are using Orbstack on an M-series Mac, you'll need to disable Rosetta while building the server's Docker image locally: Orbstack > Settings > System > Use Rosetta to run Intel code (uncheck this).
-
-WIP. Basically, get the Unitree G1 client running on the robot's computer with access to the required dependencies, and the server running in the `Dockerfile` container on a public IP address with a valid SSL certificate. Port `80` should be exposed in the container and mapped to 443 for ingress and egress.
-
-> **IMPORTANT**: The server should have the environment variable `DASHBOARD_PASSWORD` set to something with a decent amount of entropy. The default password is `admin`.
 
 [landmark names]: https://developers.snap.com/lens-studio/api/lens-scripting/enums/Packages_SpectaclesInteractionKit_Providers_HandInputData_LandmarkNames.LandmarkName.html
 [SIK-0.10.0]: https://developers.snap.com/spectacles/spectacles-frameworks/spectacles-interaction-kit/release-notes#v0100
