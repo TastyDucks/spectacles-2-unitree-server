@@ -19,14 +19,17 @@ jobs:
     strategy:
       matrix:
         container:
-          - path: .devcontainer
+          - context: .
+            file: .devcontainer/Dockerfile
             name: dev
-            platforms: linux/amd64
-          - path: unitree-client
+            platforms: linux/arm64
+          - context: unitree-client
+            file: unitree-client/Dockerfile
             name: client
             target: runtime
             platforms: linux/arm64
-          - path: .
+          - context: coordination-server
+            file: coordination-server/Dockerfile
             name: server
             platforms: linux/amd64
     steps:
@@ -63,8 +66,8 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.container.path }}
-          file: ${{ matrix.container.path }}/Dockerfile
+          context: ${{ matrix.container.context }}
+          file: ${{ matrix.container.file }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.container.platforms }}

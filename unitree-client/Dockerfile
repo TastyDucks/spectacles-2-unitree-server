@@ -65,7 +65,7 @@ RUN source /opt/conda/etc/profile.d/conda.sh \
 FROM base AS runtime
 
 LABEL org.opencontainers.image.description="Spectacles-2-Unitree Robot Client"
-LABEL org.opencontainers.image.source="https://github.com/tastyducks/spectacles-2-unitree-server"
+LABEL org.opencontainers.image.source="https://github.com/TastyDucks/spectacles-2-unitree-server"
 
 ENV LD_LIBRARY_PATH="/app/.venv/lib64/python3.10/site-packages/casadi:$LD_LIBRARY_PATH"
 ENV PATH="/opt/conda/bin:${PATH}"

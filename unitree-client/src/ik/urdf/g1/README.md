@@ -1,7 +1,5 @@
 # Unitree G1 Description (URDF & MJCF)
 
-> This file was copied from <https://github.com/unitreerobotics/avp_teleoperate/blob/20633f692d3b6d985ab12cb038cb05e817eabfe3/assets/g1/README.md>.
-
 ## Overview
 
 This package includes a universal humanoid robot description (URDF & MJCF) for the [Unitree G1](https://www.unitree.com/g1/), developed by [Unitree Robotics](https://www.unitree.com/).

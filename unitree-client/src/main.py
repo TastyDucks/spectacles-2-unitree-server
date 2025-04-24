@@ -6,9 +6,10 @@ import json
 import logging
 import signal
 import struct
-import sys
 import time
+from enum import Enum
 
+import ik.ik
 import numpy as np
 import websockets
 from PIL import Image, ImageDraw, ImageFont
@@ -16,10 +17,10 @@ from unitree_sdk2py.core.channel import ChannelFactoryInitialize
 from unitree_sdk2py.g1.audio.g1_audio_client import AudioClient
 from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
 
-import ik.ik
-
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("robot_client")
 
 # Client statuses
@@ -33,38 +34,95 @@ LATERAL_SPEED = 0.2  # Left/right speed in m/s
 ROTATION_SPEED = 0.6  # Rotation speed in rad/s
 
 
+class RobotState(str, Enum):
+    LOW_LEVEL = "basic_service"
+    HIGH_LEVEL = "ai_sport"
+
+
 class Robot:
     """
     A wrapper around the unitree LocoClient, AudioClient, and the ArmsAndHands class.
     """
 
-    def __init__(self, mock: bool = True):
+    def __init__(self, mode: RobotState, mock: bool = True):
         self.mock = mock
+        self._motion_state = mode
         if not mock:
-            logger.info("Initializing LocoClient and AudioClient...")
             ChannelFactoryInitialize(0, "eth0")
-
-            self._loco = LocoClient()
-            self._loco.SetTimeout(10.0)
-            self._loco.Init()
-
-            self._audio = AudioClient()
-            self._audio.Init()
+            # logger.info("Initializing MotionSwitcherClient...")
+            # self._motion_switcher = MotionSwitcherClient()
+            # self._motion_switcher.Init()
+            if self._motion_state == RobotState.HIGH_LEVEL:
+                logger.info(
+                    "Starting client with real robot control, high-level (locomotion) API mode..."
+                )
+                logger.info("Initializing LocoClient and AudioClient...")
+                self._loco = LocoClient()
+                self._loco.SetTimeout(10.0)
+                self._loco.Init()
+                self._audio = AudioClient()
+                self._audio.Init()
+            elif self._motion_state == RobotState.LOW_LEVEL:
+                logger.info(
+                    "Starting client with real robot control, low-level (hand control) API mode..."
+                )
+                logger.info("Initializing low-level arms and hands IK solver...")
+                self._arms_and_hands = ik.ik.ArmsAndHands(mock=mock)
         else:
-            self._loco = None
-        logger.info("Initializing arms and hands IK solver...")
-        self._arms_and_hands = ik.ik.ArmsAndHands(mock=mock)
+            if self._motion_state == RobotState.HIGH_LEVEL:
+                logger.info(
+                    "Starting client in mock robot mode, high-level (locomotion) API mode..."
+                )
+            elif self._motion_state == RobotState.LOW_LEVEL:
+                logger.info(
+                    "Starting client in mock robot mode, low-level (hand control) API mode..."
+                )
+                logger.info("Initializing low-level arms and hands IK solver...")
+                self._arms_and_hands = ik.ik.ArmsAndHands(mock=mock)
 
         self.head_rot = np.array([0, 0, 0, 1])
 
+    def _set_state(self, new_state: RobotState):
+        return
+        # TODO:
+        # if self.mock:
+        #     return
+        # try:
+        #     # # Check the current state.
+        #     # code, curr_state = self._motion_switcher.CheckMode()
+        #     # if code != 0:
+        #     #     logger.warning(f"Error setting state: {code}")
+        #     #     return
+        #     # curr_state_name = curr_state["name"]
+        #     # if curr_state_name != new_state.value:
+        #     if new_state == RobotState.HIGH_LEVEL:
+        #         self._arms_and_hands.pause_movement_publisher()
+
+        #         # self._motion_switcher.ReleaseMode()
+        #         # self._motion_switcher.SelectMode(new_state.value)
+
+        #     elif new_state == RobotState.LOW_LEVEL:
+        #         self._arms_and_hands.resume_movement_publisher()
+
+        #     self._motion_state = new_state
+        # except Exception as e:
+        #     logger.warning(f"Error setting state: {e}")
+        #     return
+
     def act(self, action: str):
+        """Handle discrete pre-programmed actions."""
         if self.mock:
             logger.info(f"Mock action: {action}")
             return
-        """Handle discrete pre-programmed actions."""
+        if self._motion_state == RobotState.LOW_LEVEL:
+            logger.warning(
+                f"Cannot perform action in low-level mode: {action}. Restart client in high-level mode with --mode ai_sport"
+            )
+            return
+        # self._set_state(RobotState.HIGH_LEVEL)
         try:
             if action == "stand":
-                self._loco.StandUp()
+                self._loco.HighStand()
             elif action == "stand_low":
                 self._loco.LowStand()
             elif action == "stand_high":
@@ -93,6 +151,12 @@ class Robot:
             logger.warning(f"Error handling action: {e}")
 
     async def move_hands(self, movement: ik.ik.HandMovement):
+        # self._set_state(RobotState.LOW_LEVEL)
+        if self._motion_state == RobotState.HIGH_LEVEL:
+            logger.warning(
+                "Cannot move hands in high-level mode. Restart client in low-level mode with --mode basic_service"
+            )
+            return
         try:
             await self._arms_and_hands.move(movement, self.mock)
         except Exception as e:
@@ -103,6 +167,12 @@ class Robot:
         if self.mock:
             logger.info(f"Mock walk command: long={long}, lat={lat}, yaw={yaw}")
             return
+        if self._motion_state == RobotState.LOW_LEVEL:
+            logger.warning(
+                "Cannot walk in low-level mode. Restart client in high-level mode with --mode ai_sport"
+            )
+            return
+        # self._set_state(RobotState.HIGH_LEVEL)
         # Clamp speed values to the configured limits
         x_vel = max(min(long, FORWARD_SPEED), -FORWARD_SPEED)
         y_vel = max(min(lat, LATERAL_SPEED), -LATERAL_SPEED)
@@ -125,25 +195,38 @@ class Robot:
         if self.mock:
             logger.info(f"Mock RGB command: r={r}, g={g}, b={b}")
             return
-        self._audio.LedControl(r, g, b)
+        if self._motion_state == RobotState.HIGH_LEVEL:
+            self._audio.LedControl(r, g, b)
 
     def tts(self, text: str):
         """Play text to speech"""
         if self.mock:
             logger.info(f"Mock TTS command: {text}")
             return
-        self._audio.TtsMaker(text, 0)
+        # self._audio.TtsMaker(text, 1) # TODO: This only support Chinese at the moment. `1` is the language code for English, but it isn't implemented by Unitree yet.
 
-    def get_sim_image(self):
+    async def get_sim_image(self):
         """Get a rendered perspective of the robot's simulated movements"""
+        if self._motion_state == RobotState.HIGH_LEVEL:
+            # Return an image that says the robot is in High Level mode and can't accept hand movements.
+            image = Image.new("RGB", (512, 512), (0, 0, 0))
+            d = datetime.datetime.now(tz=datetime.UTC)
+            timestamp_str = d.isoformat(timespec="milliseconds")
+            draw = ImageDraw.Draw(image)
+            font = ImageFont.load_default()
+            font.size = 14
+            text = f"{timestamp_str}\nHigh Level Mode\nCannot accept hand movements"
+            draw.text((5, 5), text, fill=(0, 255, 0), font=font)
+            return image.tobytes()
         x, y, z, w = self.head_rot
-        image: Image = self._arms_and_hands.render(x, y, z, w)
+        image = await self._arms_and_hands.render(x, y, z, w)
         # Add timestamp ISO with decimal seconds
         d = datetime.datetime.now(tz=datetime.UTC)
         timestamp_str = d.isoformat(timespec="milliseconds")
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default()
-        text = f"{timestamp_str}"
+        font.size = 14
+        text = f"{'[MOCK]' if self.mock else '[LIVE]'} {timestamp_str}"
         # Draw the text
         draw.text((5, 5), text, fill=(0, 255, 0), font=font)
         # Return the image as bytes
@@ -151,28 +234,30 @@ class Robot:
 
 
 class RobotClient:
-    def __init__(self, server_url: str, mock: bool = True):
+    def __init__(self, server_url: str, mode: RobotState, mock: bool = True):
         self.server_url = server_url
         self.ws = None
         self.client_id = None
         self.paired_with = None
         self.status = STATUS_DISCONNECTED
         self.running = True
-        self.robot = Robot(mock=mock)
+        self.robot = Robot(mode=mode, mock=mock)
 
     async def connect(self):
         """Connect to the server and identify as a robot client"""
         try:
             logger.info(f"Connecting to {self.server_url}")
-            self.ws = await websockets.connect(self.server_url, ping_timeout=60, ping_interval=10)
+            self.ws = await websockets.connect(
+                self.server_url, ping_timeout=60, ping_interval=10
+            )
 
             # Identify as robot
             await self.ws.send(json.dumps({"type": "robot"}))
             logger.info("Connected and identified as robot client")
 
             return True
-        except Exception as e:
-            logger.exception(f"Connection failed")
+        except Exception:
+            logger.exception("Connection failed")
             return False
 
     async def handle_messages(self):
@@ -190,6 +275,7 @@ class RobotClient:
                     logger.warning(f"Connection closed: {e}")
                     self.status = STATUS_DISCONNECTED
                     self.paired_with = None
+                    break
         except Exception as e:
             logger.error(f"Error handling messages: {e}")
 
@@ -254,12 +340,15 @@ class RobotClient:
 
     async def handle_ping(self, data: dict):
         """Respond to ping messages for latency measurement"""
+        # TODO: Add a nonce for RTT measurement.
         timestamp = data.get("timestamp")
         if timestamp:
-            await self.ws.send(json.dumps({"type": "pong", "ping_timestamp": timestamp}))
+            await self.ws.send(
+                json.dumps({"type": "pong", "ping_timestamp": timestamp})
+            )
 
     async def send_status(self):
-        """Send status updates to the spectacles client if paired"""
+        """Send status updates to the Spectacles client if paired"""
         try:
             while self.running:
                 if self.ws and self.status == STATUS_PAIRED:
@@ -268,9 +357,13 @@ class RobotClient:
                             {
                                 "type": "robot_status",
                                 "timestamp": time.time(),
-                                "battery": 85,  # Example value
-                                "position": [0, 0, 0],  # Example position
-                                "orientation": [0, 0, 0, 1],  # Example quaternion
+                                "battery": 85,  # TODO: DDS rt/lf/bmsstate
+                                "position": [
+                                    0,
+                                    0,
+                                    0,
+                                ],  # TODO: c.f. https://support.unitree.com/home/en/G1_developer/odometer_service_interface
+                                "orientation": [0, 0, 0, 1],
                             }
                         )
                     )
@@ -294,9 +387,11 @@ class RobotClient:
                 if self.ws and self.status == STATUS_PAIRED:
                     frame_start = time.monotonic()
                     try:
-                        image_data = self.robot.get_sim_image()
+                        image_data = await self.robot.get_sim_image()
                         if image_data:
-                            msg_bytes = struct.pack("!cI", b"s", len(image_data)) + image_data
+                            msg_bytes = (
+                                struct.pack("!cI", b"s", len(image_data)) + image_data
+                            )
                             await self.ws.send(msg_bytes)
                             frame_count += 1
 
@@ -341,18 +436,27 @@ class RobotClient:
         if self.ws:
             try:
                 await self.ws.send(json.dumps({"type": "unpair"}))
-            except Exception as e:
+            except Exception:
                 logger.exception("Error sending unpair message")
             await self.ws.close()
         logger.info("Robot client stopped")
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Unitree Robot Client for Spectacles Coordination")
+    parser = argparse.ArgumentParser(
+        description="Unitree Robot Client for Spectacles Coordination"
+    )
     parser.add_argument(
         "--server",
         default="wss://spectaclexr.com/ws",
         help="Coordination server WebSocket URL",
+    )
+    parser.add_argument(
+        "--mode",
+        action="store",
+        choices=[RobotState.LOW_LEVEL.value, RobotState.HIGH_LEVEL.value],
+        default=RobotState.LOW_LEVEL.value,
+        help="Robot mode: low-level hand control (basic_service) or high-level locomotion (ai_sport)",
     )
     parser.add_argument(
         "--mock",
@@ -361,12 +465,18 @@ async def main():
         help="Run in mock mode for testing purposes",
     )
     args = parser.parse_args()
-
-    client = RobotClient(args.server, mock=args.mock)
+    try:
+        args.mode = RobotState(args.mode)
+    except ValueError:
+        logger.error(f"Invalid mode: {args.mode}. Use 'basic_service' or 'ai_sport'.")
+        return
+    client = RobotClient(args.server, mode=args.mode, mock=args.mock)
     loop = asyncio.get_running_loop()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(shutdown(client)))
+        loop.add_signal_handler(
+            sig, lambda s=sig: asyncio.create_task(shutdown(client))
+        )
 
     await client.run()
 

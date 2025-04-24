@@ -11,10 +11,25 @@ from scipy.spatial.transform import Rotation
 from ik.g1_controller import G1_29_ArmController, G1_29_JointArmIndex
 from ik.g1_solver import G1_29_ArmIK
 
+
+def fast_mat_inv(mat: np.ndarray) -> np.ndarray:
+    """
+    Fast matrix inversion for 4x4 matrices.
+    """
+    if mat.shape != (4, 4):
+        msg = "Input matrix must be 4x4."
+        raise ValueError(msg)
+    ret = np.eye(4)
+    ret[:3, :3] = mat[:3, :3].T
+    ret[:3, 3] = -mat[:3, :3].T @ mat[:3, 3]
+    return ret
+
+
 # Spectacles world space (X right, Y up, Z back) to robot world space (X front, Y left, Z up)
 R_specs_to_robot = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
 T_specs_to_robot = np.eye(4)
 T_specs_to_robot[:3, :3] = R_specs_to_robot
+T_specs_to_robot_inv = fast_mat_inv(T_specs_to_robot)
 
 # Spectacles left wrist
 # - X right, back to palm
@@ -26,7 +41,9 @@ T_specs_to_robot[:3, :3] = R_specs_to_robot
 # - Y palm to back
 # - Z pinky to index
 #
-R_specs_wrist_to_robot_left = Rotation.from_euler("xyz", [90, -90, 0], degrees=True).as_matrix()
+R_specs_wrist_to_robot_left = Rotation.from_euler(
+    "xyz", [90, -90, 0], degrees=True
+).as_matrix()
 T_local_fix_left = np.eye(4)
 T_local_fix_left[:3, :3] = R_specs_wrist_to_robot_left
 
@@ -39,15 +56,21 @@ T_local_fix_left[:3, :3] = R_specs_wrist_to_robot_left
 # - X wrist to middle
 # - Y back to palm
 # - Z pinky to index
-R_specs_wrist_to_robot_right = Rotation.from_euler("xyz", [90, 90, 0], degrees=True).as_matrix()
+R_specs_wrist_to_robot_right = Rotation.from_euler(
+    "xyz", [90, 90, 0], degrees=True
+).as_matrix()
 T_local_fix_right = np.eye(4)
 T_local_fix_right[:3, :3] = R_specs_wrist_to_robot_right
 
 # For G1 initial position
-const_right_wrist_default = np.array([[1, 0, 0, 0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]])
+const_right_wrist_default = np.array(
+    [[1, 0, 0, 0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]]
+)
 
 # For G1 initial position
-const_left_wrist_default = np.array([[1, 0, 0, -0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]])
+const_left_wrist_default = np.array(
+    [[1, 0, 0, -0.15], [0, 1, 0, 1.13], [0, 0, 1, -0.3], [0, 0, 0, 1]]
+)
 
 # Offset, in meters, from the robot's world origin (its waist) to the robot's head.
 T_robot_origin_to_robot_head = np.array(
@@ -62,20 +85,6 @@ T_robot_origin_to_robot_head = np.array(
 
 class RobotHandType(Enum):
     DEX3 = "./urdf/dex_hand/unitree_dex3.yml"
-    INSPIRE = "./urdf/inspire_hand/inspire_hand.yml"
-
-
-def fast_mat_inv(mat: np.ndarray) -> np.ndarray:
-    """
-    Fast matrix inversion for 4x4 matrices.
-    """
-    if mat.shape != (4, 4):
-        msg = "Input matrix must be 4x4."
-        raise ValueError(msg)
-    ret = np.eye(4)
-    ret[:3, :3] = mat[:3, :3].T
-    ret[:3, 3] = -mat[:3, :3].T @ mat[:3, 3]
-    return ret
 
 
 class HandMovement:
@@ -95,19 +104,27 @@ class HandMovement:
     leftWristMat: np.ndarray = np.copy(const_left_wrist_default)
     # Right wrist position and rotation in robot space
     rightWristMat: np.ndarray = np.copy(const_right_wrist_default)
-    # Left hand finger positions in left-wrist space.
+    # Left hand finger positions in left-wrist space. Dex3 joint order: thumb_0, thumb_1, thumb_2, middle_0, middle_1, index_0, index_1
     leftHandFingerPos: np.ndarray | None = None
-    # Right hand finger positions in right-wrist space.
+    # Right hand finger positions in right-wrist space. Dex3 joint order: thumb_0, thumb_1, thumb_2, middle_0, middle_1, index_0, index_1
     rightHandFingerPos: np.ndarray | None = None
 
-    def __init__(self, data: dict, robot_hand_type=RobotHandType.INSPIRE):
+    # TODO: Switch calculation method based on head position over time.
+    # 1. In Spectacles space, wrists are relatively static, head position is relatively static, but head rotation is changing.
+    #    - Example: hands stationary on a keyboard but looking left and right.
+    #    - Method: keep using the wrist's last position.
+    # 2. In Spectacles space, wrists position is changing, head position is changing.
+    #    - Example: holding hands steady in front of the body and walking around.
+    #    - Method: use the wrist's current **relative** position.
+
+    def __init__(self, data: dict):
         self.handType = data.get("handType", "")
         self.timestamp = data.get("timestamp", 0)
 
         # The "transform" key is expected to be a list where:
-        #   - The first element is the flattened 4x4 wrist transform.
+        #   - The first element is the flattened 4x4 wrist transform, column-major.
         #   - Next elements are 3D finger positions.
-        #   - Last element is a 4x4 for head transform
+        #   - Last element is a flatteend 4x4 for head transform, column-major.
         transform = data.get("transform", [])
         if not transform or len(transform) < 3:
             msg = "Invalid data: missing transform information."
@@ -118,41 +135,74 @@ class HandMovement:
         #
 
         # Head transform
-        self._rawHeadTransform = np.array(transform[-1]).reshape(4, 4)
+        self._rawHeadTransform = np.array(transform[-1]).reshape(4, 4).T
+        self._rawHeadTransform[0:3, 3] /= 100.0  # cm -> m
 
         # Wrist transform
         self._rawWristTransform = np.array(transform[0]).reshape(4, 4).T
         self._rawWristTransform[0:3, 3] /= 100.0  # cm -> m
 
-        # Finger positions are relative to the wrist.
+        # Finger positions -- these are already relative to the wrist transform in Spectacles space.
         self._rawFingerPositions = np.array(transform[1:-1]).reshape(-1, 3)
         self._rawFingerPositions /= 100.0  # cm -> m
 
         #
-        # Convert from Spectacles AR coordinate space to Robot space
+        # Convert from Spectacles AR coordinate space to Robot space.
         #
 
-        # Head
-        self.headMat = T_specs_to_robot @ self._rawHeadTransform @ fast_mat_inv(T_specs_to_robot)
-        head_pos_specs = self._rawHeadTransform[:3, 3]
+        # Head and Wrists
 
+        # 1. Apply local wrist rotation in the Spectacles space so they'll line up when we switch to the Robot space.
+
+        # Select proper local wrist frame correction.
         if self.handType == "left":
-            # Local rotation about the wrist's own axes in Spectacles space.
-            T_wrist_fixed = self._rawWristTransform @ T_local_fix_left
-            # Convert to robot space.
-            T_wrist_in_robot = T_specs_to_robot @ T_wrist_fixed @ fast_mat_inv(T_specs_to_robot)
-            # Translate.
-            self.leftWristMat = T_robot_origin_to_robot_head @ T_wrist_in_robot
+            T_local_fix = T_local_fix_left
         elif self.handType == "right":
-            T_wrist_fixed = self._rawWristTransform @ T_local_fix_right
-            T_wrist_in_robot = T_specs_to_robot @ T_wrist_fixed @ fast_mat_inv(T_specs_to_robot)
-            self.rightWristMat = T_robot_origin_to_robot_head @ T_wrist_in_robot
+            T_local_fix = T_local_fix_right
         else:
             msg = f"Invalid hand type: {self.handType}. Expected 'left' or 'right'."
             raise ValueError(msg)
 
-        # Finger positions
-        # TODO. These need to be relative to the wrists.
+        T_Spectacles_wrist_rotated = self._rawWristTransform @ T_local_fix
+
+        # 2. Calculate wrist transform relative to head in Spectacles space.
+        T_Spectacles_wrist_rel_head = (
+            fast_mat_inv(self._rawHeadTransform) @ T_Spectacles_wrist_rotated
+        )
+
+        # 3. Transform the relative wrist pose from Spectacles space to Robot space.
+        T_robot_wrist_origin = (
+            T_specs_to_robot @ T_Spectacles_wrist_rel_head @ T_specs_to_robot.T
+        )
+
+        # 4. Translate relative to the robot's head.
+        T_Robot_wrist_target = T_robot_origin_to_robot_head @ T_robot_wrist_origin
+
+        if self.handType == "left":
+            self.leftWristMat = T_Robot_wrist_target
+        elif self.handType == "right":
+            self.rightWristMat = T_Robot_wrist_target
+        else:
+            msg = f"Invalid hand type: {self.handType}. Expected 'left' or 'right'."
+            raise ValueError(msg)
+
+        if self.handType == "left":
+            indices = [
+                3,  # Spectacles thumb-3 -> Dex3 thumb_tip
+                19,  # Spectacles pinky-3 -> Dex3 index_tip
+                7,  # Spectacles index-3 -> Dex3 middle_tip
+            ]
+        elif self.handType == "right":
+            indices = [
+                3,  # Spectacles thumb-3 -> Dex3 thumb_tip
+                7,  # Spectacles index-3 -> Dex3 index_tip
+                19,  # Spectacles pinky-3 -> Dex3 middle_tip
+            ]
+        else:
+            msg = f"Invalid hand type: {self.handType}. Expected 'left' or 'right'."
+            raise ValueError(msg)
+
+        finger_joints = self._rawFingerPositions[indices]
 
 
 class IK:
@@ -165,7 +215,13 @@ class IK:
         """
         self.ik_solver = ik_solver
 
-    def compute_ik(self, left: np.ndarray, right: np.ndarray, current_q: np.ndarray, current_dq: np.ndarray):
+    def compute_ik(
+        self,
+        left: np.ndarray,
+        right: np.ndarray,
+        current_q: np.ndarray,
+        current_dq: np.ndarray,
+    ):
         """
         Computes the IK solution with left and right wrist and hand matrices.
 
@@ -198,9 +254,11 @@ class ArmsAndHands:
             if not mock:
                 try:
                     self.controller = G1_29_ArmController()
-                except Exception as e:
-                    logging.exception(f"Failed to initialize default robot controller, falling back to mock.")
-                    mock = True
+                except Exception:
+                    logging.exception(
+                        "Failed to initialize default robot controller, falling back to mock."
+                    )
+                    self.mock = True
                     self.controller = None
             else:
                 self.controller = None
@@ -251,8 +309,14 @@ class ArmsAndHands:
             start_time = time.time()
 
             # Get current joint positions and velocities
-            self.current_q = self.controller.get_current_dual_arm_q() if not mock else self.current_q
-            self.current_dq = self.controller.get_current_dual_arm_dq() if not mock else self.current_dq
+            self.current_q = (
+                self.controller.get_current_dual_arm_q() if not mock else self.current_q
+            )
+            self.current_dq = (
+                self.controller.get_current_dual_arm_dq()
+                if not mock
+                else self.current_dq
+            )
 
             # Compute IK solution
             self.q_sol, self.tauff_sol = self.ik.compute_ik(
@@ -276,18 +340,29 @@ class ArmsAndHands:
             self.processing_times.append(processing_time)
 
             # Log performance stats periodically
-            if end_time - self.last_log_time >= self.log_interval and len(self.message_timestamps) > 1:
+            if (
+                end_time - self.last_log_time >= self.log_interval
+                and len(self.message_timestamps) > 1
+            ):
                 self.last_log_time = end_time
 
                 # Calculate incoming message rate (messages per second)
                 if len(self.message_timestamps) >= 2:
                     time_span = self.message_timestamps[-1] - self.message_timestamps[0]
-                    msg_rate = (len(self.message_timestamps) - 1) / time_span if time_span > 0 else 0
+                    msg_rate = (
+                        (len(self.message_timestamps) - 1) / time_span
+                        if time_span > 0
+                        else 0
+                    )
                 else:
                     msg_rate = 0
 
                 # Calculate average processing time
-                avg_processing_time = sum(self.processing_times) / len(self.processing_times) if self.processing_times else 0
+                avg_processing_time = (
+                    sum(self.processing_times) / len(self.processing_times)
+                    if self.processing_times
+                    else 0
+                )
 
                 # Calculate real-time ratio (processing time / message interval)
                 real_time_ratio = avg_processing_time * msg_rate if msg_rate > 0 else 0
@@ -303,7 +378,9 @@ class ArmsAndHands:
         """
         Reset the arm and hand controller to its initial state.
         """
-        self.controller.ctrl_dual_arm_go_home()
+        if self.controller is not None:
+            self.controller.resume_publish_thread()
+            self.controller.ctrl_dual_arm_go_home()
         self.left_wrist_transform = np.eye(4)
         self.right_wrist_transform = np.eye(4)
         self.current_q = None
@@ -311,8 +388,8 @@ class ArmsAndHands:
         self.q_sol = None
         self.tauff_sol = None
 
-    def render(self, x=0, y=0, z=0, w=1) -> Image:
+    async def render(self, x=0, y=0, z=0, w=1) -> Image:
         """
         Render image of movement via meshcat
         """
-        return self.ik.ik_solver.capture_frame(x, y, z, w)
+        return await asyncio.to_thread(self.ik.ik_solver.capture_frame, x, y, z, w)

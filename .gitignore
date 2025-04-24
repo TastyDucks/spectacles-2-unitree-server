@@ -1,5 +1,15 @@
-# MacOS
-.DS_STORE
+# Shipped by Lens Studio
+Cache/**
+PluginsUserPreferences/**
+Support/**
+BackUp/**
+Workspaces/**
+.vscode/**
+jsconfig.json
+tsconfig.json
+.DS_Store
+*.lock
+# Shipped by Lens Studio
 # Python
 .venv
 *.egg-info

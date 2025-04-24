@@ -1,11 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
 
 class WeightedMovingFilter:
-    def __init__(self, weights, data_size = 14):
+    def __init__(self, weights, data_size=14):
         self._window_size = len(weights)
         self._weights = np.array(weights)
-        assert np.isclose(np.sum(self._weights), 1.0), "[WeightedMovingFilter] the sum of weights list must be 1.0!"
+        assert np.isclose(np.sum(self._weights), 1.0), (
+            "[WeightedMovingFilter] the sum of weights list must be 1.0!"
+        )
         self._data_size = data_size
         self._filtered_data = np.zeros(self._data_size)
         self._data_queue = []
@@ -17,8 +20,10 @@ class WeightedMovingFilter:
         data_array = np.array(self._data_queue)
         temp_filtered_data = np.zeros(self._data_size)
         for i in range(self._data_size):
-            temp_filtered_data[i] = np.convolve(data_array[:, i], self._weights, mode='valid')[-1]
-        
+            temp_filtered_data[i] = np.convolve(
+                data_array[:, i], self._weights, mode="valid"
+            )[-1]
+
         return temp_filtered_data
 
     def add_data(self, new_data):
@@ -26,7 +31,7 @@ class WeightedMovingFilter:
 
         if len(self._data_queue) > 0 and np.array_equal(new_data, self._data_queue[-1]):
             return  # skip duplicate data
-        
+
         if len(self._data_queue) >= self._window_size:
             self._data_queue.pop(0)
 
@@ -37,9 +42,10 @@ class WeightedMovingFilter:
     def filtered_data(self):
         return self._filtered_data
 
+
 if __name__ == "__main__":
     # windows_size and weights
-    filter_params = [ 
+    filter_params = [
         (np.array([0.7, 0.2, 0.1])),
         (np.array([0.5, 0.3, 0.2])),
         (np.array([0.4, 0.3, 0.2, 0.1])),

@@ -1,15 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: N801, N802, N803, N806, N815, N816
-# Copied from https://github.com/unitreerobotics/avp_teleoperate/blob/20633f692d3b6d985ab12cb038cb05e817eabfe3/teleop/robot_control/robot_arm.py
 import threading
 import time
 from enum import IntEnum
 
 import numpy as np
-from unitree_sdk2py.core.channel import (
-    ChannelFactoryInitialize,  # dds
-    ChannelPublisher,
-    ChannelSubscriber,
-)
+from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber
 from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowCmd_
 from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_, LowState_  # idl
 from unitree_sdk2py.utils.crc import CRC
@@ -112,13 +108,21 @@ class G1_29_ArmController:
             self.msg.motor_cmd[id].q = self.all_motor_q[id]
         print("Lock OK!\n")
 
-        # initialize publish thread
         self.publish_thread = threading.Thread(target=self._ctrl_motor_state)
         self.ctrl_lock = threading.Lock()
         self.publish_thread.daemon = True
         self.publish_thread.start()
 
         print("Initialize G1_29_ArmController OK!\n")
+
+    def pause_publish_thread(self):
+        """Pause the publish thread."""
+        self.publish_thread_pause_event.clear()
+        print("[G1_29_ArmController] Publish thread paused.")
+
+    def resume_publish_thread(self):
+        """Resume the publish thread."""
+        self.publish_thread_pause_event.set()
 
     def _subscribe_motor_state(self):
         while True:
@@ -146,7 +150,9 @@ class G1_29_ArmController:
                 arm_q_target = self.q_target
                 arm_tauff_target = self.tauff_target
 
-            cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+            cliped_arm_q_target = self.clip_arm_q_target(
+                arm_q_target, velocity_limit=self.arm_velocity_limit
+            )
 
             for idx, id in enumerate(G1_29_JointArmIndex):
                 self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
@@ -179,15 +185,30 @@ class G1_29_ArmController:
 
     def get_current_motor_q(self):
         """Return current state q of all body motors."""
-        return np.array([self.lowstate_buffer.GetData().motor_state[id].q for id in G1_29_JointIndex])
+        return np.array(
+            [
+                self.lowstate_buffer.GetData().motor_state[id].q
+                for id in G1_29_JointIndex
+            ]
+        )
 
     def get_current_dual_arm_q(self):
         """Return current state q of the left and right arm motors."""
-        return np.array([self.lowstate_buffer.GetData().motor_state[id].q for id in G1_29_JointArmIndex])
+        return np.array(
+            [
+                self.lowstate_buffer.GetData().motor_state[id].q
+                for id in G1_29_JointArmIndex
+            ]
+        )
 
     def get_current_dual_arm_dq(self):
         """Return current state dq of the left and right arm motors."""
-        return np.array([self.lowstate_buffer.GetData().motor_state[id].dq for id in G1_29_JointArmIndex])
+        return np.array(
+            [
+                self.lowstate_buffer.GetData().motor_state[id].dq
+                for id in G1_29_JointArmIndex
+            ]
+        )
 
     def ctrl_dual_arm_go_home(self):
         """Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero."""

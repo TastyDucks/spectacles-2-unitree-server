@@ -1,7 +1,13 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-  "name": "Spectacles-2-Unitree coordination server",
-  "image": "ghcr.io/tastyducks/spectacles-2-unitree-server.dev:latest",
+  "name": "Spectacles-2-Unitree dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "options": [
+      "--platform=linux/arm64"
+    ]
+  },
   "mounts": [
     {
       "source": "/var/run/docker.sock",
@@ -10,10 +16,9 @@
     }
   ],
   "runArgs": [
-    "--platform=linux/amd64"
+    "--platform=linux/arm64"
   ],
   "forwardPorts": [
     8080
-  ],
-  "initializeCommand": "docker pull --platform linux/amd64 ghcr.io/tastyducks/spectacles-2-unitree-server.dev:latest" // This is needed because VS Code doesn't re-pull the image automatically... might be a regression in the remote dev extension, cf https://github.com/microsoft/vscode-remote-release/issues/7104
+  ]
 }

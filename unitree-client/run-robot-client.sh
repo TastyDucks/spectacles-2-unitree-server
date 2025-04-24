@@ -6,4 +6,4 @@ sudo docker run \
   --gpus=all \
   --net=host \
   --cap-add=NET_ADMIN \
-  ghcr.io/tastyducks/spectacles-2-unitree-server.client:latest
+  CONTAINER_URL
