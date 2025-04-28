@@ -4,6 +4,11 @@
 
 ![Spectacles to Unitree simulation demo](./README-ref/sample-list-unitree.gif)
 
+> **IMPORTANT**: This project is provided purely for experimental and research purposes.
+We do **not** endorse, sponsor, or have any formal affiliation with Unitree Robotics (or any other company mentioned).
+>
+> All trademarks, company names, and product names are the property of their respective owners.
+
 ## Overview
 A system for teleoperating a Unitree G1 humanoid robot using Snapchat Spectacles AR glasses.
 
@@ -12,8 +17,9 @@ A system for teleoperating a Unitree G1 humanoid robot using Snapchat Spectacles
 This project provides four main methods of interaction:
 
 1. **Hand Teleoperation**: Control the robot's arms and hands by mirroring your own hand movements, and view a simulated version of the robot in your Spectacles.
-  <br>
-  ![High-fiving the robot using hand tracking](./README-ref/high-five.gif)
+
+![High-fiving the robot using hand tracking](./README-ref/high-five.gif)
+
 2. **Preset Actions**: Execute predefined robot actions (stand, sit, wave, etc.) with a single tap.
 3. **Virtual Joystick**: Walk the robot around using a virtual joystick.
 4. **Raycast movement**: Point to a location and the robot will walk there.
@@ -115,20 +121,21 @@ Unless otherwise specified, all commands in this section should be run inside th
 1. You must have a container engine like Docker Desktop or Orbstack running.
 2. If using VS Code, install the [Remote Development extension pack](vscode:extension/ms-vscode-remote.vscode-remote-extensionpack).
 3. Open this repository in VS Code, then open the command palette (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) and run `> Dev Containers: Rebuild and Reopen in Container`:
-  <br>
+
   ![Command palette](./README-ref/vscode-command.png)
-4. Fetch dependencies for the server:
+
+1. Fetch dependencies for the server:
    ```bash
    cd coordination-server && uv sync
    ```
-5. Fetch dependencies for the Unitree client:
+2. Fetch dependencies for the Unitree client:
    ```bash
    cd unitree-client \
       && source /opt/conda/etc/profile.d/conda.sh \
       && conda activate unitree-client \
       && conda env update -f environment.yml
    ```
-6. The Unitree client can be run locally for testing in "mock" mode. This will allow it to run without access to the robot; it will simply print out commands as they are received:
+3. The Unitree client can be run locally for testing in "mock" mode. This will allow it to run without access to the robot; it will simply print out commands as they are received:
    ```bash
    cd unitree-client && python src/main.py --mock --server wss://SERVER_HOST/ws
    ```
