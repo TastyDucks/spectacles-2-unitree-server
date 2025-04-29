@@ -28,7 +28,10 @@ RUN uv sync --no-dev
 FROM ubuntu:noble AS runtime
 
 LABEL org.opencontainers.image.description="Spectacles-2-Unitree Coordination Server"
-LABEL org.opencontainers.image.source="https://github.com/TastyDucks/spectacles-2-unitree-server"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:${PATH}"
