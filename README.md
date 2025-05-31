@@ -67,7 +67,7 @@ fly launch
 
 #### Spectacles Lens
 
-Open [this project](./Unitree.esproj) in Lens Studio. In the scene hierarchy, select the `CoordinationClient` component. Then, in the inspector panel, change the Server URL to your host, e.g. `wss://YOUR_SERVER_HOST/ws`.
+Open [this project](./Unitree.esproj) in Lens Studio, **version 5.4.1**. In the scene hierarchy, select the `CoordinationClient` component. Then, in the inspector panel, change the Server URL to your host, e.g. `wss://YOUR_SERVER_HOST/ws`.
 
 ![Lens Studio UI](./README-ref/server-b.png)
 
