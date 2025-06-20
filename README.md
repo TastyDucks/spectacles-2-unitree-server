@@ -16,7 +16,7 @@ A system for teleoperating a Unitree G1 humanoid robot using Snapchat Spectacles
 
 This project provides four main methods of interaction:
 
-1. **Hand Teleoperation**: Control the robot's arms and hands by mirroring your own hand movements, and view a simulated version of the robot in your Spectacles.
+1. **Hand Teleoperation**: Control the robot's arms and hands by mirroring your own hand movements, and view a simulated version of the robot in your Spectacles. **Toggle hand tracking by tapping your left palm with your right index finger.**
 
 ![High-fiving the robot using hand tracking](./README-ref/high-five.gif)
 
